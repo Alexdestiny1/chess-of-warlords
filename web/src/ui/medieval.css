@@ -390,6 +390,20 @@
   box-shadow: 0 0 18px rgba(216, 177, 99, 0.35);
 }
 
+.mc-code-input {
+  cursor: text;
+  text-align: center;
+}
+
+.mc-code-input::placeholder {
+  color: #7d6f57;
+  letter-spacing: 0.16em;
+}
+
+.mc-code-input:focus {
+  border-color: rgba(246, 223, 165, 0.8);
+}
+
 /* --------------------------------------------------- chronicle corner */
 
 /* Small sigil in the bottom-left corner. Collapsed by default so the board

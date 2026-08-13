@@ -275,20 +275,28 @@ export function Hud({
               <p className="mc-display text-[0.58rem] tracking-[0.3em] text-[#a89268]">
                 {demo
                   ? `AI vs AI · duel ${snapshot.demoRound}`
-                  : snapshot.status === "over"
-                    ? "Battle ended"
-                    : snapshot.thinking
-                      ? "Council of war"
-                      : "To move"}
+                  : snapshot.mode === "online"
+                    ? snapshot.status === "over"
+                      ? "Battle ended"
+                      : snapshot.turn === snapshot.playerColor
+                        ? "Your move"
+                        : "The field waits"
+                    : snapshot.status === "over"
+                      ? "Battle ended"
+                      : snapshot.thinking
+                        ? "Council of war"
+                        : "To move"}
               </p>
               <p className="mc-display text-sm text-[#f2e2bd]">
                 {snapshot.status === "over"
                   ? "—"
-                  : snapshot.thinking
-                    ? "Thinking…"
-                    : snapshot.turn === "w"
-                      ? "Ivory"
-                      : "Obsidian"}
+                  : snapshot.mode === "online" && snapshot.turn !== snapshot.playerColor
+                    ? "Opponent to move"
+                    : snapshot.thinking
+                      ? "Thinking…"
+                      : snapshot.turn === "w"
+                        ? "Ivory"
+                        : "Obsidian"}
               </p>
             </div>
             {snapshot.inCheck && snapshot.status === "playing" ? (

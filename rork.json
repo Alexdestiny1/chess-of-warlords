@@ -1,7 +1,7 @@
 {
   "apps": [
     {
-      "name": "Medieval Chess",
+      "name": "Chess of Warlords",
       "path": "web",
       "framework": "web"
     }

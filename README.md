@@ -1,4 +1,4 @@
-# King's Gambit — Medieval 3D Chess
+# Chess of Warlords — Cinematic 3D Chess
 
 ![Sculpted Ivory Kingdom knights, bishops and a crowned king facing the Sun Empire's feathered warriors across a marble-and-basalt board, each figure carrying a rank crest above its head](docs/board.jpg)
 
@@ -105,14 +105,9 @@ cd web && bun install && bun run dev
 - **2D tactical view** — one key lifts the camera straight overhead and flattens every figure
   into a stamped counter, so nothing can hide a square. Selection and moving keep working.
 - **Three engine strengths** running off the main thread, so the render loop never blocks.
-- **AI vs AI / attract mode** — let two engines duel on their own with pace control, pause,
-  auto-rematch, and a clean capture view with the entire interface hidden. Three camera
-  behaviours: hold one angle, follow the figure on the move and close in on the fight, or
-  drift slowly around the board. The follow rig **leans** towards the action instead of
-  chasing it into the hall wall, so the picture no longer shudders while it tracks. AI vs AI also renders crisper than a played game —
-  no depth of field, softer grain, vignette and bloom. Every AI vs AI duel now **ends with a
-  verdict card**: who won and how, the two engine strengths, the record, a countdown on the next
-  duel that can be held, and one tap to roll another duel or return to the hall.
+- **Online warlords** — find a random opponent on the field, or send a six-letter challenge
+  code (or a join link) to someone you already want to fight. Matchmaking is peer-to-peer;
+  no account and no game server of your own.
 - **An interface that stays off the board** — icon-only controls with a themed tooltip on every
   one of them (name, one-line explanation, key cap), the move record folded into a corner
   sigil, and a slim showcase rail that collapses to a single icon. One key strips the whole
@@ -427,10 +422,24 @@ The picker is now staged as a modal:
 | --- | --- |
 | **Player vs Computer** | Pick your colour, an engine strength and an optional clock |
 | **Two players** | Hotseat on one screen; the view **holds still** — flip it by hand with `F`, or switch on the automatic swing between turns (see below) |
-| **AI vs AI** | Two engines duel on their own — per-side strength, 0.5×–4× pace, auto-rematch, still / follow / orbit camera, foldable rail, verdict card at the end |
-| **Attract** | Leave the menu alone for 30 seconds and an AI vs AI duel starts behind it |
+| **Online** | Find a random opponent, or host a challenge and send the code / join link |
 
 Clocks: none, 5, 10 or 15 minutes, drawn as draining hourglasses.
+
+### Online
+
+No account and no game server of your own. Two browsers find each other over
+public signalling, then play peer-to-peer.
+
+- **Find opponent** — join the field; the first two seekers are paired.
+- **Create challenge** — you get a six-letter code and a join link (`?join=CODE`).
+  Send either to a friend.
+- **Join** — type the code, or open the link. Colour is drawn when the match is
+  made (the lower peer id takes Ivory). Each player brings their own army; the
+  host's battleground and hourglass stand.
+
+Both players need a network that allows WebRTC. If a search hangs, withdraw and
+try again, or use a challenge code instead.
 
 **Hotseat does not turn the board for you.** It used to: a half turn round the hall after every
 single ply, on by default. That is the heaviest camera move in the game, and at chess pace it fired
@@ -1748,7 +1757,7 @@ this repository.
 
 ## License
 
-[MIT](LICENSE) © the King's Gambit contributors.
+[MIT](LICENSE) © the Chess of Warlords contributors.
 
 Bundled dependencies keep their own licences: three.js (MIT), chess.js (BSD-2-Clause),
 React (MIT), Tailwind CSS (MIT), Radix UI / shadcn/ui (MIT), lucide (ISC).

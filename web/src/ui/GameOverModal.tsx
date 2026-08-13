@@ -30,6 +30,8 @@ interface GameOverModalProps {
   versusComputer: boolean;
   moveCount: number;
   showcase?: ShowcaseOutcome | null;
+  /** Online: we asked for another duel and are waiting on them. */
+  rematchPending?: boolean;
   onRematch: () => void;
   onMenu: () => void;
 }
@@ -43,6 +45,7 @@ const REASON_COPY: Record<EndReason, string> = {
   insufficient: "Insufficient material",
   fiftymove: "Fifty-move rule",
   draw: "Drawn position",
+  disconnect: "The other warlord left the field",
 };
 
 const ENGINE_NAME: Record<Difficulty, string> = {
@@ -58,6 +61,7 @@ export function GameOverModal({
   versusComputer,
   moveCount,
   showcase,
+  rematchPending = false,
   onRematch,
   onMenu,
 }: GameOverModalProps) {
@@ -136,8 +140,14 @@ export function GameOverModal({
           ) : null}
 
           <div className="mt-5 grid grid-cols-2 gap-2">
-            <button type="button" className="mc-btn mc-btn-primary flex items-center justify-center gap-2" onClick={onRematch}>
-              {showcase ? <RotateCw size={15} /> : <Swords size={15} />} {showcase ? "Another duel" : "Rematch"}
+            <button
+              type="button"
+              className="mc-btn mc-btn-primary flex items-center justify-center gap-2"
+              onClick={onRematch}
+              disabled={rematchPending}
+            >
+              {showcase ? <RotateCw size={15} /> : <Swords size={15} />}{" "}
+              {showcase ? "Another duel" : rematchPending ? "Waiting…" : "Rematch"}
             </button>
             <button type="button" className="mc-btn flex items-center justify-center gap-2" onClick={onMenu}>
               <Home size={15} /> Great hall

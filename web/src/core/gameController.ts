@@ -716,6 +716,29 @@ export class GameController extends Emitter<ControllerEvents> {
     return this.play(from, to, promotion);
   }
 
+  /**
+   * Applies a move that arrived from the other warlord. Same animation path as
+   * a local move; the only difference is it does not have to be our turn.
+   */
+  async applyRemoteMove(from: SquareId, to: SquareId, promotion?: PieceKind | null): Promise<boolean> {
+    if (this.status !== "playing" || this.options.mode !== "online") return false;
+    while (this.busy && this.status === "playing") await wait(40);
+    if (this.status !== "playing") return false;
+    return this.play(from, to, promotion ?? undefined);
+  }
+
+  /** The other warlord lowered their banner. */
+  applyRemoteResign(): void {
+    if (this.status !== "playing" || this.options.mode !== "online") return;
+    this.finish({ winner: this.options.playerColor, reason: "resignation" });
+  }
+
+  /** The other warlord dropped off the field. */
+  applyDisconnect(): void {
+    if (this.status !== "playing" || this.options.mode !== "online") return;
+    this.finish({ winner: this.options.playerColor, reason: "disconnect" });
+  }
+
   private async play(from: SquareId, to: SquareId, promotion?: PieceKind): Promise<boolean> {
     let move: Move | null = null;
     try {
@@ -864,7 +887,10 @@ export class GameController extends Emitter<ControllerEvents> {
 
   resign(): void {
     if (this.status !== "playing") return;
-    const loser = this.options.mode === "ai" ? this.options.playerColor : (this.chess.turn() as Faction);
+    const loser =
+      this.options.mode === "ai" || this.options.mode === "online"
+        ? this.options.playerColor
+        : (this.chess.turn() as Faction);
     this.finish({ winner: loser === "w" ? "b" : "w", reason: "resignation" });
   }
 
@@ -893,7 +919,7 @@ export class GameController extends Emitter<ControllerEvents> {
   private async maybeRunEngine(): Promise<void> {
     if (this.status !== "playing" || this.paused) return;
     const mode = this.options.mode;
-    if (mode === "hotseat") return;
+    if (mode === "hotseat" || mode === "online") return;
     const turn = this.chess.turn() as Faction;
     if (mode === "ai" && turn === this.options.playerColor) return;
     if (this.thinking) return;
@@ -1041,7 +1067,8 @@ export class GameController extends Emitter<ControllerEvents> {
         !this.thinking &&
         !this.busy &&
         this.options.mode !== "attract" &&
-        this.options.mode !== "demo",
+        this.options.mode !== "demo" &&
+        this.options.mode !== "online",
       demo: this.options.mode === "demo" ? { ...(this.options.demo ?? DEFAULT_DEMO) } : null,
       paused: this.paused,
       demoRound: this.demoRound,

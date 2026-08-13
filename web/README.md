@@ -1,4 +1,4 @@
-# King's Gambit — the app
+# Chess of Warlords — the app
 
 This folder holds the game itself. For the project overview, features, architecture notes and
 contribution guide, read the [root README](../README.md) and [CONTRIBUTING.md](../CONTRIBUTING.md).

@@ -10,6 +10,12 @@ import {
   THINK_FLOOR_CHOICES,
 } from "../core/gameController";
 import type { Faction, LedgerMove, PieceKind } from "../core/types";
+import {
+  OnlineSession,
+  type OnlineLobbyState,
+  type OnlineMatch,
+  type OnlineOffer,
+} from "../net/onlineSession";
 import { Clapperboard } from "lucide-react";
 import { ARENA_LOOKS, DEFAULT_ARENA } from "../scene/arena";
 import { detectQualityPreset, type QualityPreset } from "../scene/quality";
@@ -25,7 +31,7 @@ import "./medieval.css";
 
 type Phase = "loading" | "menu" | "playing";
 
-const ATTRACT_DELAY_MS = 30_000;
+const JOIN_QUERY = "join";
 /**
  * How long a finished showcase is left alone before the verdict card rises.
  * The end cinematic dollies onto the fallen king for ~2.4s — in a duel that is
@@ -205,10 +211,20 @@ function saveRenderPrefs(prefs: RenderPrefs): void {
   }
 }
 
+function readJoinCode(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return new URLSearchParams(window.location.search).get(JOIN_QUERY)?.trim().toUpperCase() ?? "";
+  } catch {
+    return "";
+  }
+}
+
 export function GameShell() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<SceneEngine | null>(null);
-  const attractTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sessionRef = useRef<OnlineSession | null>(null);
+  const matchRef = useRef<OnlineMatch | null>(null);
 
   const controller = useMemo(() => new GameController(), []);
   const snapshot = useGameSnapshot(controller);
@@ -242,7 +258,6 @@ export function GameShell() {
   const [progress, setProgress] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [introPlaying, setIntroPlaying] = useState(false);
-  const [attract, setAttract] = useState(false);
   const [promotionOpen, setPromotionOpen] = useState(false);
   const [fps, setFps] = useState(0);
   const [contextLost, setContextLost] = useState(false);
@@ -255,6 +270,14 @@ export function GameShell() {
   const [cinema, setCinema] = useState(false);
   /** How the camera behaves during a showcase duel: held, orbiting or following. */
   const [showcaseCamera, setShowcaseCamera] = useState<ShowcaseCamera>("follow");
+  const [onlineLobby, setOnlineLobby] = useState<OnlineLobbyState>({
+    phase: "idle",
+    code: null,
+    error: null,
+  });
+  const [rematchPending, setRematchPending] = useState(false);
+  const [peerWantsRematch, setPeerWantsRematch] = useState(false);
+  const [initialJoinCode] = useState<string>(() => readJoinCode());
 
   // ------------------------------------------------------------ boot the scene
   useEffect(() => {
@@ -374,65 +397,95 @@ export function GameShell() {
     saveThinkFloor(settings.thinkFloorMs);
   }, [settings, phase, controller]);
 
-  // ------------------------------------------------------------- attract mode
-  const stopAttract = useCallback(() => {
-    if (attractTimer.current) {
-      clearTimeout(attractTimer.current);
-      attractTimer.current = null;
-    }
-    if (!attract) return;
-    setAttract(false);
-    controller.stop();
-    engineRef.current?.setAttract(false);
-    engineRef.current?.resync();
-  }, [attract, controller]);
-
-  const scheduleAttract = useCallback(() => {
-    if (attractTimer.current) clearTimeout(attractTimer.current);
-    attractTimer.current = setTimeout(() => {
-      if (phase !== "menu" || showSettings) return;
-      setAttract(true);
-      engineRef.current?.setAttract(true);
-      controller.start({ mode: "attract", difficulty: "medium", playerColor: "w", clockMinutes: null });
-    }, ATTRACT_DELAY_MS);
-  }, [controller, phase, showSettings]);
-
-  useEffect(() => {
-    if (phase !== "menu" || attract || introPlaying) return;
-    scheduleAttract();
-    return () => {
-      if (attractTimer.current) clearTimeout(attractTimer.current);
-    };
-  }, [phase, attract, introPlaying, scheduleAttract]);
-
-  // ------------------------------------------------------------------ actions
   const startMatch = useCallback(
     (config: MatchConfig) => {
-      stopAttract();
       void audio.unlock();
       audio.blip("press");
       const engine = engineRef.current;
-      const showcase = config.mode === "demo";
       engine?.setAttract(false);
       engine?.setInteractive(true);
-      // A showcase brings its own framing (and its own crisp grade) with it.
-      engine?.setShowcase(showcase, showcaseCamera);
-      if (!showcase) {
-        engine?.setCameraPreset(config.mode === "ai" && config.playerColor === "b" ? "black" : "white");
-      }
+      engine?.setShowcase(false);
+      engine?.setCameraPreset(
+        (config.mode === "ai" || config.mode === "online") && config.playerColor === "b" ? "black" : "white",
+      );
       controller.start({
         mode: config.mode,
         difficulty: config.difficulty,
         playerColor: config.playerColor,
         clockMinutes: config.clockMinutes,
-        demo: config.demo,
       });
       setPhase("playing");
     },
-    [controller, showcaseCamera, stopAttract],
+    [controller],
   );
 
+  const startOnlineMatch = useCallback(
+    (match: OnlineMatch) => {
+      matchRef.current = match;
+      setRematchPending(false);
+      setPeerWantsRematch(false);
+      setSettings((current) => ({ ...current, skins: match.skins, arena: match.arena }));
+      const engine = engineRef.current;
+      engine?.setArmySkins(match.skins);
+      engine?.setArena(match.arena);
+      audio.setArena(match.arena);
+      startMatch({
+        mode: "online",
+        difficulty: "medium",
+        playerColor: match.playerColor,
+        clockMinutes: match.clockMinutes,
+      });
+    },
+    [startMatch],
+  );
+
+  const closeOnline = useCallback(() => {
+    sessionRef.current?.cancel();
+    sessionRef.current = null;
+    matchRef.current = null;
+    setOnlineLobby({ phase: "idle", code: null, error: null });
+    setRematchPending(false);
+    setPeerWantsRematch(false);
+  }, []);
+
+  const ensureSession = useCallback((): OnlineSession => {
+    if (sessionRef.current) return sessionRef.current;
+    const session = new OnlineSession({
+      onLobby: (state) => setOnlineLobby(state),
+      onMatch: (match) => startOnlineMatch(match),
+      onMove: (move) => {
+        void controller.applyRemoteMove(move.from, move.to, move.promotion);
+      },
+      onResign: () => controller.applyRemoteResign(),
+      onDisconnect: () => {
+        controller.applyDisconnect();
+        setNotice("The other warlord left the field.");
+        setTimeout(() => setNotice(null), 5000);
+      },
+      onRematch: () => {
+        setPeerWantsRematch(true);
+      },
+    });
+    sessionRef.current = session;
+    return session;
+  }, [controller, startOnlineMatch]);
+
+  useEffect(() => () => sessionRef.current?.dispose(), []);
+
+  useEffect(() => {
+    return controller.on("move", (event) => {
+      if (controller.getSnapshot().mode !== "online") return;
+      if (event.color !== controller.getSnapshot().playerColor) return;
+      sessionRef.current?.sendMove({
+        from: event.from,
+        to: event.to,
+        promotion: event.promotion,
+      });
+    });
+  }, [controller]);
+
   const returnToMenu = useCallback(() => {
+    closeOnline();
     controller.stop();
     const engine = engineRef.current;
     engine?.setTacticalView(false);
@@ -441,7 +494,7 @@ export function GameShell() {
     engine?.setCameraPreset("cinematic");
     setCinema(false);
     setPhase("menu");
-  }, [controller]);
+  }, [closeOnline, controller]);
 
   // -------------------------------------------------------- showcase controls
   const handleTogglePause = useCallback(() => {
@@ -487,17 +540,23 @@ export function GameShell() {
 
   const handleResign = useCallback(() => {
     audio.blip("deny");
+    if (controller.getSnapshot().mode === "online") {
+      sessionRef.current?.sendResign();
+    }
     controller.resign();
   }, [controller]);
 
   const handleRematch = useCallback(() => {
     const current = controller.getSnapshot();
-    // A showcase restarts through the controller so the two engine strengths,
-    // the pacing and the duel counter all survive — routing it through
-    // `startMatch` would quietly demote the duel to a game against the computer.
     if (current.mode === "demo") {
       audio.blip("press");
       controller.restartDemo();
+      return;
+    }
+    if (current.mode === "online") {
+      audio.blip("press");
+      sessionRef.current?.sendRematch();
+      setRematchPending(true);
       return;
     }
     startMatch({
@@ -507,6 +566,40 @@ export function GameShell() {
       clockMinutes: current.clock.enabled ? current.clock.initialMs / 60_000 : null,
     });
   }, [controller, startMatch]);
+
+  useEffect(() => {
+    if (!rematchPending || !peerWantsRematch) return;
+    const match = matchRef.current;
+    if (!match) return;
+    startOnlineMatch(match);
+  }, [peerWantsRematch, rematchPending, startOnlineMatch]);
+
+  const handleFindOnline = useCallback(
+    (offer: OnlineOffer) => {
+      void audio.unlock();
+      audio.blip("press");
+      ensureSession().findMatch(offer);
+    },
+    [ensureSession],
+  );
+
+  const handleHostOnline = useCallback(
+    (offer: OnlineOffer) => {
+      void audio.unlock();
+      audio.blip("press");
+      return ensureSession().hostChallenge(offer);
+    },
+    [ensureSession],
+  );
+
+  const handleJoinOnline = useCallback(
+    (code: string, offer: OnlineOffer) => {
+      void audio.unlock();
+      audio.blip("press");
+      ensureSession().joinChallenge(code, offer);
+    },
+    [ensureSession],
+  );
 
   const handleFullscreen = useCallback(() => {
     const element = document.documentElement;
@@ -649,8 +742,12 @@ export function GameShell() {
             onOpenSettings={() => setShowSettings(true)}
             muster={{ skins: settings.skins, arena: settings.arena }}
             onMuster={handleMuster}
-            attract={attract}
-            onInteract={stopAttract}
+            online={onlineLobby}
+            onFindOnline={handleFindOnline}
+            onHostOnline={handleHostOnline}
+            onJoinOnline={handleJoinOnline}
+            onCancelOnline={closeOnline}
+            initialJoinCode={initialJoinCode}
           />
         ) : null}
 
@@ -746,6 +843,7 @@ export function GameShell() {
             playerColor={snapshot.playerColor}
             versusComputer={snapshot.mode === "ai"}
             moveCount={snapshot.history.length}
+            rematchPending={snapshot.mode === "online" && rematchPending}
             showcase={
               snapshot.demo
                 ? {
@@ -791,7 +889,7 @@ function LoadingScreen({ progress }: { progress: number }) {
   return (
     <div className="mc-fade absolute inset-0 flex flex-col items-center justify-center gap-5 bg-[#05060a]/85 px-6">
       <p className="mc-display text-[0.62rem] tracking-[0.5em] text-[#a89268]">MUSTERING THE ARMIES</p>
-      <h1 className="mc-display mc-title-glow text-4xl text-[#f4e3bd]">KING&apos;S GAMBIT</h1>
+      <h1 className="mc-display mc-title-glow text-4xl text-[#f4e3bd]">CHESS OF WARLORDS</h1>
       <div className="h-[3px] w-64 overflow-hidden rounded-full bg-[#2a251c]">
         <div
           className="h-full rounded-full bg-gradient-to-r from-[#8a6522] via-[#f6dfa5] to-[#8a6522] transition-[width] duration-300"

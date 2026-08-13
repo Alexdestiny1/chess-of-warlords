@@ -11,7 +11,7 @@ export type SquareId = string;
 
 export type Difficulty = "easy" | "medium" | "hard";
 
-export type GameMode = "ai" | "hotseat" | "attract" | "demo";
+export type GameMode = "ai" | "hotseat" | "online" | "attract" | "demo";
 
 /** Computer-vs-computer showcase settings (used for recording demos). */
 export interface DemoOptions {
@@ -35,7 +35,8 @@ export type EndReason =
   | "threefold"
   | "insufficient"
   | "fiftymove"
-  | "draw";
+  | "draw"
+  | "disconnect";
 
 export interface GameResult {
   /** Winner, or null for a draw. */
@@ -111,7 +112,7 @@ export interface GameSnapshot {
   status: GameStatus;
   mode: GameMode;
   difficulty: Difficulty;
-  /** Human player's colour in AI mode. */
+  /** Human player's colour in AI or online mode. */
   playerColor: Faction;
   turn: Faction;
   fen: string;
