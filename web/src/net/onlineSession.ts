@@ -53,6 +53,8 @@ export interface OnlineHandlers {
   onResign: () => void;
   onDisconnect: () => void;
   onRematch: (fromPeer: boolean) => void;
+  /** Peer rewound the shared game to this many half-moves. */
+  onUndo: (to: number) => void;
 }
 
 type HelloPayload = {
@@ -69,7 +71,9 @@ type MovePayload = {
 };
 type SignalPayload = {
   v: 1;
-  kind: "resign" | "rematch";
+  kind: "resign" | "rematch" | "undo";
+  /** History length after an undo. */
+  to?: number;
 };
 
 function randomCode(length = 6): string {
@@ -182,6 +186,10 @@ export class OnlineSession {
     void this.signals?.send({ v: 1, kind: "rematch" });
   }
 
+  sendUndo(to: number): void {
+    void this.signals?.send({ v: 1, kind: "undo", to });
+  }
+
   dispose(): void {
     this.tearDown();
   }
@@ -266,6 +274,7 @@ export class OnlineSession {
       if (!this.matched || data?.v !== 1) return;
       if (data.kind === "resign") this.handlers.onResign();
       if (data.kind === "rematch") this.handlers.onRematch(true);
+      if (data.kind === "undo" && typeof data.to === "number") this.handlers.onUndo(data.to);
     };
 
     room.onPeerJoin = (id) => {

@@ -39,6 +39,12 @@ interface HudProps {
   fps: number;
   onNewGame: () => void;
   onUndo: () => void;
+  /** True while a take-back banner is playing — the button waits for it. */
+  undoPending?: boolean;
+  /** Live-opponent purse. Absent in every other mode. */
+  redoPurse?: { remaining: number; max: number } | null;
+  /** Merlin Pass — take-backs against the machine need no banner. */
+  adsExempt?: boolean;
   onResign: () => void;
   onToggleSound: () => void;
   onFullscreen: () => void;
@@ -136,6 +142,9 @@ export function Hud({
   fps,
   onNewGame,
   onUndo,
+  undoPending = false,
+  redoPurse = null,
+  adsExempt = false,
   onResign,
   onToggleSound,
   onFullscreen,
@@ -344,13 +353,9 @@ export function Hud({
             <>
               <IconButton
                 label="Take back"
-                hint={
-                  snapshot.canUndo
-                    ? "Undo your last move and the reply to it."
-                    : "Nothing to take back yet."
-                }
+                hint={undoHint(snapshot, redoPurse, adsExempt)}
                 onClick={onUndo}
-                disabled={!snapshot.canUndo}
+                disabled={!canTakeBack(snapshot, redoPurse) || undoPending}
               >
                 <RotateCcw size={16} />
               </IconButton>
@@ -798,6 +803,39 @@ function ClockFace({
       </div>
     </div>
   );
+}
+
+function canTakeBack(
+  snapshot: GameSnapshot,
+  purse: { remaining: number; max: number } | null,
+): boolean {
+  if (!snapshot.canUndo) return false;
+  if (snapshot.mode === "online") return Boolean(purse && purse.remaining > 0);
+  return true;
+}
+
+function undoHint(
+  snapshot: GameSnapshot,
+  purse: { remaining: number; max: number } | null,
+  adsExempt: boolean,
+): string {
+  if (snapshot.mode === "online") {
+    if (!purse || purse.remaining <= 0) {
+      return adsExempt
+        ? "No take-backs left. Claim more in the Great Hall."
+        : "No take-backs left. Earn banners in the Great Hall before you join.";
+    }
+    if (!snapshot.canUndo) return "Nothing to take back yet.";
+    const left = purse.remaining;
+    return `Take back your last move. ${left} left today.`;
+  }
+  if (!snapshot.canUndo) return "Nothing to take back yet.";
+  if (snapshot.mode === "ai") {
+    return adsExempt
+      ? "Undo your last move and the reply to it."
+      : "Watch a short banner, then undo your last move and the reply.";
+  }
+  return "Undo your last move and the reply to it.";
 }
 
 function IconButton({

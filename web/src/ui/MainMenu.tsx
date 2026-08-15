@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
-import { Check, Copy, Crown, Globe2, Link2, Search, Settings as SettingsIcon, Swords, Users, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, Copy, Crown, Globe2, Link2, ScrollText, Search, Settings as SettingsIcon, Swords, Users, X } from "lucide-react";
 
 import type { Difficulty, Faction } from "../core/types";
 import type { OnlineLobbyState, OnlineOffer } from "../net/onlineSession";
+import { MerlinPassDock } from "../pass/MerlinPassCard";
+import type { LocalizedPrice } from "../pass/price";
 import { Crest } from "./Heraldry";
 import { useHasKeyboard } from "./inputMode";
 import { ArmyPicker, ArenaPicker, MusterSection, type MusterChoice } from "./Muster";
@@ -26,6 +28,23 @@ interface MainMenuProps {
   onJoinOnline: (code: string, offer: OnlineOffer) => void;
   onCancelOnline: () => void;
   initialJoinCode?: string;
+  /** Daily take-back purse — earned here, spent only against a live opponent. */
+  redoPurse: {
+    remaining: number;
+    earned: number;
+    max: number;
+    canEarn: boolean;
+  };
+  earningRedo?: boolean;
+  onEarnRedo: () => void;
+  merlin: {
+    active: boolean;
+    price: LocalizedPrice;
+    checkoutReady: boolean;
+  };
+  onBuyMerlin: () => void;
+  onGrantMerlinDev?: () => void;
+  onClearMerlinDev?: () => void;
 }
 
 const DIFFICULTY_COPY: Record<Difficulty, string> = {
@@ -52,8 +71,16 @@ export function MainMenu({
   onJoinOnline,
   onCancelOnline,
   initialJoinCode = "",
+  redoPurse,
+  earningRedo = false,
+  onEarnRedo,
+  merlin,
+  onBuyMerlin,
+  onGrantMerlinDev,
+  onClearMerlinDev,
 }: MainMenuProps) {
   const hasKeyboard = useHasKeyboard();
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const [tab, setTab] = useState<"ai" | "hotseat" | "online">(initialJoinCode ? "online" : "ai");
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
   const [playerColor, setPlayerColor] = useState<Faction>("w");
@@ -76,6 +103,21 @@ export function MainMenu({
   useEffect(() => {
     if (initialJoinCode) setJoinCode(initialJoinCode);
   }, [initialJoinCode]);
+
+  useEffect(() => {
+    const node = scrollRef.current;
+    if (!node) return;
+    node.scrollTop = 0;
+    const frame = requestAnimationFrame(() => {
+      node.scrollTop = 0;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [tab]);
+
+  const openTab = (next: "ai" | "hotseat" | "online"): void => {
+    if (next === tab || waiting) return;
+    setTab(next);
+  };
 
   const start = (): void =>
     onStart({
@@ -101,6 +143,14 @@ export function MainMenu({
 
   return (
     <div className="mc-menu mc-modal-pad pointer-events-auto absolute inset-0 flex flex-col items-center justify-center overflow-hidden">
+      <MerlinPassDock
+        active={merlin.active}
+        price={merlin.price}
+        checkoutReady={merlin.checkoutReady}
+        onPurchase={onBuyMerlin}
+        onGrantDev={onGrantMerlinDev}
+        onClearDev={onClearMerlinDev}
+      />
       <div className="mc-unfurl mc-menu-hero mb-6 shrink-0 text-center">
         <p className="mc-display text-[0.68rem] tracking-[0.55em] text-[#c8ab74]">Anno Domini MCDXCII</p>
         <h1 className="mc-display mc-title-glow mt-2 text-5xl font-bold text-[#f4e3bd] sm:text-6xl">
@@ -117,7 +167,7 @@ export function MainMenu({
             className="mc-chip flex items-center justify-center gap-1.5 px-1 py-3"
             data-active={tab === "ai"}
             disabled={waiting}
-            onClick={() => setTab("ai")}
+            onClick={() => openTab("ai")}
           >
             <Swords size={14} /> Computer
           </button>
@@ -126,7 +176,7 @@ export function MainMenu({
             className="mc-chip flex items-center justify-center gap-1.5 px-1 py-3"
             data-active={tab === "hotseat"}
             disabled={waiting}
-            onClick={() => setTab("hotseat")}
+            onClick={() => openTab("hotseat")}
           >
             <Users size={14} /> 2 Players
           </button>
@@ -134,13 +184,13 @@ export function MainMenu({
             type="button"
             className="mc-chip flex items-center justify-center gap-1.5 px-1 py-3"
             data-active={tab === "online"}
-            onClick={() => setTab("online")}
+            onClick={() => openTab("online")}
           >
             <Globe2 size={14} /> Online
           </button>
         </div>
 
-        <div className="mc-scroll -mr-2 min-h-0 flex-auto overflow-y-auto pr-2">
+        <div ref={scrollRef} className="mc-scroll -mr-2 min-h-0 flex-auto overflow-y-auto pr-2">
           {tab === "ai" ? (
             <div className="mc-fade space-y-5">
               <div>
@@ -218,6 +268,11 @@ export function MainMenu({
                     </button>
                   </div>
                   <p className="mc-pulse text-center text-xs italic text-[#9c8b6c]">Waiting for them to join…</p>
+                  <p className="text-center text-[0.68rem] italic text-[#9c8b6c]">
+                    {redoPurse.remaining === 0
+                      ? "No take-backs in this purse — the field will not allow a redo."
+                      : `${redoPurse.remaining} take-back${redoPurse.remaining === 1 ? "" : "s"} ready.`}
+                  </p>
                 </div>
               ) : online.phase === "seeking" || online.phase === "connecting" ? (
                 <div className="space-y-3 py-2 text-center">
@@ -237,6 +292,12 @@ export function MainMenu({
                   <p className="text-sm italic leading-relaxed text-[#b7a88a]">
                     Face a stranger on the field, or send a code to someone you already want to fight.
                   </p>
+                  <RedoPurseCard
+                    purse={redoPurse}
+                    earning={earningRedo}
+                    onEarn={onEarnRedo}
+                    pass={merlin.active}
+                  />
                   <div>
                     <p className="mc-display mb-2 text-[0.62rem] tracking-[0.3em] text-[#a89268]">Your army</p>
                     <ArmyPicker
@@ -292,66 +353,93 @@ export function MainMenu({
           )}
         </div>
 
-        <div className="mc-panel-foot mc-actions mt-5 shrink-0">
+        <div className="mc-panel-foot mt-5 shrink-0">
           {tab === "online" ? (
             waiting ? (
-              <button type="button" className="mc-btn flex items-center justify-center gap-2" onClick={onCancelOnline}>
-                <X size={15} /> Withdraw
-              </button>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  className="mc-btn mc-btn-primary flex items-center justify-center gap-2"
-                  onClick={() => onFindOnline(offer())}
-                >
-                  <Search size={15} /> Find opponent
+              <div className="mc-actions">
+                <button type="button" className="mc-btn flex items-center justify-center gap-2" onClick={onCancelOnline}>
+                  <X size={15} /> Withdraw
                 </button>
                 <button
                   type="button"
                   className="mc-btn flex items-center justify-center gap-2"
-                  onClick={() => onHostOnline(offer())}
+                  onClick={onOpenSettings}
+                  disabled
                 >
-                  <Crown size={15} /> Create challenge
+                  <SettingsIcon size={14} /> Settings
                 </button>
-                <div className="flex gap-2">
-                  <input
-                    className="mc-chip mc-code-input min-w-0 flex-1 px-3 py-2.5 uppercase tracking-[0.2em] text-[#f2e2bd] outline-none"
-                    value={joinCode}
-                    onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") onJoinOnline(joinCode, offer());
-                    }}
-                    placeholder="ENTER CODE"
-                    spellCheck={false}
-                    autoCapitalize="characters"
-                    aria-label="Challenge code"
-                  />
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="mc-actions">
                   <button
                     type="button"
-                    className="mc-btn shrink-0 px-3"
-                    onClick={() => onJoinOnline(joinCode, offer())}
-                    disabled={joinCode.trim().length < 4}
+                    className="mc-btn mc-btn-primary flex items-center justify-center gap-2"
+                    onClick={() => onFindOnline(offer())}
                   >
-                    Join
+                    <Search size={15} /> Find opponent
+                  </button>
+                  <button
+                    type="button"
+                    className="mc-btn flex items-center justify-center gap-2"
+                    onClick={() => onHostOnline(offer())}
+                  >
+                    <Crown size={15} /> Create challenge
                   </button>
                 </div>
-              </>
+                <div className="mc-join">
+                  <p className="mc-display mb-1.5 text-[0.58rem] tracking-[0.28em] text-[#a89268]">Join with a code</p>
+                  <div className="mc-join-row">
+                    <input
+                      type="text"
+                      className="mc-code-input"
+                      value={joinCode}
+                      onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" && joinCode.trim().length >= 4) onJoinOnline(joinCode, offer());
+                      }}
+                      placeholder="ABC123"
+                      spellCheck={false}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="characters"
+                      inputMode="text"
+                      maxLength={8}
+                      aria-label="Challenge code"
+                    />
+                    <button
+                      type="button"
+                      className="mc-btn mc-join-go"
+                      onClick={() => onJoinOnline(joinCode, offer())}
+                      disabled={joinCode.trim().length < 4}
+                    >
+                      Join
+                    </button>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="mc-btn flex w-full items-center justify-center gap-2"
+                  onClick={onOpenSettings}
+                >
+                  <SettingsIcon size={14} /> Settings
+                </button>
+              </div>
             )
           ) : (
-            <button type="button" className="mc-btn mc-btn-primary flex items-center justify-center gap-2" onClick={start}>
-              <Crown size={15} /> Take the field
-            </button>
+            <div className="mc-actions">
+              <button type="button" className="mc-btn mc-btn-primary flex items-center justify-center gap-2" onClick={start}>
+                <Crown size={15} /> Take the field
+              </button>
+              <button
+                type="button"
+                className="mc-btn flex items-center justify-center gap-2"
+                onClick={onOpenSettings}
+              >
+                <SettingsIcon size={14} /> Settings
+              </button>
+            </div>
           )}
-
-          <button
-            type="button"
-            className="mc-btn flex items-center justify-center gap-2"
-            onClick={onOpenSettings}
-            disabled={waiting}
-          >
-            <SettingsIcon size={14} /> Settings
-          </button>
         </div>
       </div>
 
@@ -360,6 +448,55 @@ export function MainMenu({
           ? "DRAG TO ORBIT · SCROLL TO ZOOM · CLICK A FIGURE TO COMMAND IT"
           : "DRAG TO ORBIT · PINCH TO ZOOM · TAP A FIGURE TO COMMAND IT"}
       </p>
+    </div>
+  );
+}
+
+function RedoPurseCard({
+  purse,
+  earning,
+  onEarn,
+  pass,
+}: {
+  purse: { remaining: number; earned: number; max: number; canEarn: boolean };
+  earning: boolean;
+  onEarn: () => void;
+  pass: boolean;
+}) {
+  const empty = purse.remaining === 0;
+  const capWord = purse.max === 1 ? "one" : purse.max === 3 ? "three" : purse.max === 5 ? "five" : String(purse.max);
+  return (
+    <div className="mc-redo-purse">
+      <div className="flex items-center justify-between gap-3">
+        <p className="mc-display text-[0.58rem] tracking-[0.28em] text-[#a89268]">Take-backs today</p>
+        <div className="mc-redo-pips" aria-hidden="true">
+          {Array.from({ length: purse.max }, (_, index) => (
+            <span key={index} className="mc-redo-pip" data-lit={index < purse.remaining ? "true" : undefined} />
+          ))}
+        </div>
+      </div>
+      <p className="mt-1.5 text-xs italic leading-relaxed text-[#9c8b6c]">
+        {empty
+          ? pass
+            ? "No points, no redo on a live opponent. Claim a take-back here before you join."
+            : "No points, no redo on a live opponent. Watch a banner here before you join."
+          : `${purse.remaining} of ${purse.max} ready — spend them in one match or across several. They fade at midnight.`}
+      </p>
+      <button
+        type="button"
+        className="mc-btn mt-3 flex w-full items-center justify-center gap-2"
+        onClick={onEarn}
+        disabled={!purse.canEarn || earning}
+      >
+        <ScrollText size={14} />
+        {earning
+          ? "Unfurling…"
+          : purse.canEarn
+            ? pass
+              ? "Claim a take-back"
+              : "Watch a banner"
+            : `All ${capWord} claimed today`}
+      </button>
     </div>
   );
 }

@@ -1,5 +1,7 @@
 import { X } from "lucide-react";
 
+import { MerlinPassCard } from "../pass/MerlinPassCard";
+import type { LocalizedPrice } from "../pass/price";
 import type { ArmySkinId } from "../assets/generated";
 import type { Faction } from "../core/types";
 import type { ArenaTheme } from "../scene/arena";
@@ -48,6 +50,14 @@ interface SettingsPanelProps {
   matchInProgress: boolean;
   onChange: (settings: GameSettings) => void;
   onClose: () => void;
+  merlin?: {
+    active: boolean;
+    price: LocalizedPrice;
+    checkoutReady: boolean;
+  };
+  onBuyMerlin?: () => void;
+  onGrantMerlinDev?: () => void;
+  onClearMerlinDev?: () => void;
 }
 
 /**
@@ -94,6 +104,10 @@ export function SettingsPanel({
   matchInProgress,
   onChange,
   onClose,
+  merlin,
+  onBuyMerlin,
+  onGrantMerlinDev,
+  onClearMerlinDev,
 }: SettingsPanelProps) {
   /** A phone has no `F` to press, so the note names the button instead. */
   const hasKeyboard = useHasKeyboard();
@@ -108,6 +122,19 @@ export function SettingsPanel({
         </div>
 
         <div className="mc-scroll mc-scroll-shade -mr-2 min-h-0 flex-auto overflow-y-auto pb-1 pr-2">
+        {merlin && onBuyMerlin ? (
+          <>
+            <MerlinPassCard
+              active={merlin.active}
+              price={merlin.price}
+              checkoutReady={merlin.checkoutReady}
+              onPurchase={onBuyMerlin}
+              onGrantDev={onGrantMerlinDev}
+              onClearDev={onClearMerlinDev}
+            />
+            <div className="mc-rule my-5" />
+          </>
+        ) : null}
         {matchInProgress ? (
           <MusterLocked choice={{ skins: settings.skins, arena: settings.arena }} />
         ) : (

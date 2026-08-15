@@ -20,6 +20,11 @@ import { Clapperboard } from "lucide-react";
 import { ARENA_LOOKS, DEFAULT_ARENA } from "../scene/arena";
 import { detectQualityPreset, type QualityPreset } from "../scene/quality";
 import { SceneEngine, type CameraPreset, type ShowcaseCamera } from "../scene/sceneEngine";
+import { AdBreakOverlay } from "../ads/AdBreakOverlay";
+import { redoPointMax } from "../ads/redoPoints";
+import { useAdBreak } from "../ads/useAdBreak";
+import { useRedoPoints } from "../ads/useRedoPoints";
+import { useMerlinPass } from "../pass/useMerlinPass";
 import { GameOverModal } from "./GameOverModal";
 import { Hud } from "./Hud";
 import { useHasKeyboard } from "./inputMode";
@@ -278,6 +283,17 @@ export function GameShell() {
   const [rematchPending, setRematchPending] = useState(false);
   const [peerWantsRematch, setPeerWantsRematch] = useState(false);
   const [initialJoinCode] = useState<string>(() => readJoinCode());
+  const adLock = useRef(false);
+
+  const applyGameMute = useCallback((muted: boolean) => {
+    audio.setMuted(muted);
+  }, []);
+  const { session: adSession, playing: adPlaying, play: playAd } = useAdBreak({
+    gameMuted: settings.muted,
+    applyGameMute,
+  });
+  const merlin = useMerlinPass();
+  const redoPurse = useRedoPoints(redoPointMax(merlin.active));
 
   // ------------------------------------------------------------ boot the scene
   useEffect(() => {
@@ -350,6 +366,21 @@ export function GameShell() {
 
   useEffect(() => () => controller.dispose(), [controller]);
 
+  useEffect(() => {
+    const result = merlin.consumeReturn();
+    if (result === "granted") {
+      setNotice("The Merlin Pass is yours. The banners fall silent.");
+      setTimeout(() => setNotice(null), 6000);
+    } else if (result === "cleared") {
+      setNotice("The Merlin Pass was cleared from this device.");
+      setTimeout(() => setNotice(null), 4000);
+    }
+  }, [merlin.consumeReturn]);
+
+  useEffect(() => {
+    if (phase === "menu") redoPurse.refresh();
+  }, [phase, redoPurse.refresh]);
+
   // ----------------------------------------------------- audio unlock on input
   useEffect(() => {
     const unlock = (): void => {
@@ -388,14 +419,14 @@ export function GameShell() {
     engine.setRankBadges(settings.rankBadges);
     engine.setSafeMode(settings.safeMode);
     engine.setBrightness(settings.brightness);
-    audio.setMuted(settings.muted);
+    if (!adPlaying) audio.setMuted(settings.muted);
     saveRenderPrefs({ safeMode: settings.safeMode, brightness: settings.brightness });
     saveArmyPrefs(settings.skins);
     saveSeatSwing(settings.rotateBoard);
     savePremoves(settings.premoves);
     savePremoveDepth(settings.premoveDepth);
     saveThinkFloor(settings.thinkFloorMs);
-  }, [settings, phase, controller]);
+  }, [settings, phase, controller, adPlaying]);
 
   const startMatch = useCallback(
     (config: MatchConfig) => {
@@ -465,6 +496,14 @@ export function GameShell() {
       onRematch: () => {
         setPeerWantsRematch(true);
       },
+      onUndo: (to) => {
+        void controller.applyRemoteUndoTo(to).then((ok) => {
+          if (!ok) return;
+          engineRef.current?.resync();
+          setNotice("The other warlord took a move back.");
+          setTimeout(() => setNotice(null), 4000);
+        });
+      },
     });
     sessionRef.current = session;
     return session;
@@ -530,13 +569,71 @@ export function GameShell() {
   }, []);
 
   const handleUndo = useCallback(() => {
-    if (controller.undo()) {
+    const current = controller.getSnapshot();
+    if (!current.canUndo) {
+      audio.blip("deny");
+      return;
+    }
+    if (current.mode === "online") {
+      if (!redoPurse.canSpend) {
+        audio.blip("deny");
+        setNotice("No take-backs left today. Earn them in the Great Hall.");
+        setTimeout(() => setNotice(null), 4000);
+        return;
+      }
+      const before = current.sanList.length;
+      const plies = controller.undo();
+      if (!plies) {
+        audio.blip("deny");
+        return;
+      }
+      redoPurse.trySpend();
+      sessionRef.current?.sendUndo(before - plies);
       audio.blip("press");
       engineRef.current?.resync();
-    } else {
-      audio.blip("deny");
+      return;
     }
-  }, [controller]);
+    if (current.mode !== "ai") {
+      if (controller.undo()) {
+        audio.blip("press");
+        engineRef.current?.resync();
+      } else {
+        audio.blip("deny");
+      }
+      return;
+    }
+    if (merlin.active) {
+      if (controller.undo()) {
+        audio.blip("press");
+        engineRef.current?.resync();
+      } else {
+        audio.blip("deny");
+      }
+      return;
+    }
+    if (adLock.current) return;
+
+    const wasPaused = controller.isPaused();
+    controller.setPaused(true);
+    adLock.current = true;
+    void playAd("undo")
+      .then((result) => {
+        if (result.proceed && controller.undo()) {
+          audio.blip("press");
+          engineRef.current?.resync();
+        } else if (!result.proceed) {
+          audio.blip("deny");
+          setNotice("The banner was dismissed — the move stands.");
+          setTimeout(() => setNotice(null), 4000);
+        } else {
+          audio.blip("deny");
+        }
+      })
+      .finally(() => {
+        if (!wasPaused) controller.setPaused(false);
+        adLock.current = false;
+      });
+  }, [controller, merlin.active, playAd, redoPurse]);
 
   const handleResign = useCallback(() => {
     audio.blip("deny");
@@ -545,6 +642,57 @@ export function GameShell() {
     }
     controller.resign();
   }, [controller]);
+
+  const handleEarnRedo = useCallback(() => {
+    if (!redoPurse.canEarn || adLock.current) return;
+    if (merlin.active) {
+      if (redoPurse.tryEarn()) audio.blip("press");
+      else audio.blip("deny");
+      return;
+    }
+    adLock.current = true;
+    void playAd("redo-point")
+      .then((result) => {
+        if (result.proceed && redoPurse.tryEarn()) {
+          audio.blip("press");
+        } else {
+          audio.blip("deny");
+          if (!result.proceed) {
+            setNotice("The banner was dismissed — no take-back was added.");
+            setTimeout(() => setNotice(null), 4000);
+          }
+        }
+      })
+      .finally(() => {
+        adLock.current = false;
+      });
+  }, [merlin.active, playAd, redoPurse]);
+
+  const handleBuyMerlin = useCallback(() => {
+    audio.blip("press");
+    if (merlin.purchase()) return;
+    if (import.meta.env.DEV) {
+      setNotice("Add VITE_STRIPE_PAYMENT_LINK to take real payments, or grant the pass below.");
+      setTimeout(() => setNotice(null), 5000);
+    }
+  }, [merlin]);
+
+  const afterMatchEndAd = useCallback(
+    (then: () => void) => {
+      if (merlin.active) {
+        then();
+        return;
+      }
+      if (adLock.current) return;
+      adLock.current = true;
+      void playAd("match-end")
+        .then(() => then())
+        .finally(() => {
+          adLock.current = false;
+        });
+    },
+    [merlin.active, playAd],
+  );
 
   const handleRematch = useCallback(() => {
     const current = controller.getSnapshot();
@@ -748,6 +896,22 @@ export function GameShell() {
             onJoinOnline={handleJoinOnline}
             onCancelOnline={closeOnline}
             initialJoinCode={initialJoinCode}
+            redoPurse={{
+              remaining: redoPurse.remaining,
+              earned: redoPurse.earned,
+              max: redoPurse.max,
+              canEarn: redoPurse.canEarn,
+            }}
+            earningRedo={adPlaying}
+            onEarnRedo={handleEarnRedo}
+            merlin={{
+              active: merlin.active,
+              price: merlin.price,
+              checkoutReady: merlin.checkoutReady,
+            }}
+            onBuyMerlin={handleBuyMerlin}
+            onGrantMerlinDev={import.meta.env.DEV ? merlin.grantForDevelopment : undefined}
+            onClearMerlinDev={import.meta.env.DEV ? merlin.clearForDevelopment : undefined}
           />
         ) : null}
 
@@ -758,6 +922,13 @@ export function GameShell() {
             fps={fps}
             onNewGame={returnToMenu}
             onUndo={handleUndo}
+            undoPending={adPlaying}
+            redoPurse={
+              snapshot.mode === "online"
+                ? { remaining: redoPurse.remaining, max: redoPurse.max }
+                : null
+            }
+            adsExempt={merlin.active}
             onResign={handleResign}
             onToggleSound={() => setSettings((current) => ({ ...current, muted: !current.muted }))}
             onFullscreen={handleFullscreen}
@@ -826,6 +997,14 @@ export function GameShell() {
             matchInProgress={phase === "playing"}
             onChange={setSettings}
             onClose={() => setShowSettings(false)}
+            merlin={{
+              active: merlin.active,
+              price: merlin.price,
+              checkoutReady: merlin.checkoutReady,
+            }}
+            onBuyMerlin={handleBuyMerlin}
+            onGrantMerlinDev={import.meta.env.DEV ? merlin.grantForDevelopment : undefined}
+            onClearMerlinDev={import.meta.env.DEV ? merlin.clearForDevelopment : undefined}
           />
         ) : null}
 
@@ -844,6 +1023,8 @@ export function GameShell() {
             versusComputer={snapshot.mode === "ai"}
             moveCount={snapshot.history.length}
             rematchPending={snapshot.mode === "online" && rematchPending}
+            adPending={adPlaying}
+            adsExempt={merlin.active}
             showcase={
               snapshot.demo
                 ? {
@@ -856,8 +1037,8 @@ export function GameShell() {
                   }
                 : null
             }
-            onRematch={handleRematch}
-            onMenu={returnToMenu}
+            onRematch={() => afterMatchEndAd(handleRematch)}
+            onMenu={() => afterMatchEndAd(returnToMenu)}
           />
         ) : null}
 
@@ -881,6 +1062,8 @@ export function GameShell() {
           </div>
         ) : null}
       </div>
+
+      {adSession ? <AdBreakOverlay session={adSession} /> : null}
     </div>
   );
 }

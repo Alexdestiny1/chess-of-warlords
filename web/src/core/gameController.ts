@@ -894,23 +894,48 @@ export class GameController extends Emitter<ControllerEvents> {
     this.finish({ winner: loser === "w" ? "b" : "w", reason: "resignation" });
   }
 
-  /** Undo one ply (hotseat) or a full move pair (vs computer). */
-  undo(): boolean {
+  /**
+   * Undo one ply (hotseat) or back to the human's turn (vs computer / online).
+   * Returns how many plies came off, or 0 if nothing moved.
+   */
+  undo(): number {
     if (this.status === "over") {
       this.status = "playing";
       this.result = null;
     }
-    if (this.status !== "playing" || this.busy || this.thinking) return false;
-    if (this.chess.history().length === 0) return false;
+    if (this.status !== "playing" || this.busy || this.thinking) return 0;
+    if (this.chess.history().length === 0) return 0;
     this.generation += 1;
     this.ai.cancel();
     this.premoves = [];
     this.chess.undo();
-    if (this.options.mode === "ai" && this.chess.turn() !== this.options.playerColor) {
+    let plies = 1;
+    const pair = this.options.mode === "ai" || this.options.mode === "online";
+    if (pair && this.chess.turn() !== this.options.playerColor && this.chess.history().length > 0) {
       this.chess.undo();
+      plies += 1;
     }
     this.thinking = false;
     this.busy = false;
+    this.syncElapsed();
+    this.publish();
+    return plies;
+  }
+
+  /**
+   * The other warlord took moves back. We rewind to their target ply count
+   * even if we already answered — that is the position they now hold.
+   */
+  async applyRemoteUndoTo(targetLength: number): Promise<boolean> {
+    if (this.status !== "playing" || this.options.mode !== "online") return false;
+    while (this.busy && this.status === "playing") await wait(40);
+    if (this.status !== "playing") return false;
+    const history = this.chess.history();
+    if (targetLength < 0 || targetLength > history.length) return false;
+    if (targetLength === history.length) return true;
+    this.generation += 1;
+    this.premoves = [];
+    while (this.chess.history().length > targetLength) this.chess.undo();
     this.syncElapsed();
     this.publish();
     return true;
@@ -1068,7 +1093,8 @@ export class GameController extends Emitter<ControllerEvents> {
         !this.busy &&
         this.options.mode !== "attract" &&
         this.options.mode !== "demo" &&
-        this.options.mode !== "online",
+        (this.options.mode !== "online" ||
+          verbose.some((move) => move.color === this.options.playerColor)),
       demo: this.options.mode === "demo" ? { ...(this.options.demo ?? DEFAULT_DEMO) } : null,
       paused: this.paused,
       demoRound: this.demoRound,

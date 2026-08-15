@@ -32,6 +32,10 @@ interface GameOverModalProps {
   showcase?: ShowcaseOutcome | null;
   /** Online: we asked for another duel and are waiting on them. */
   rematchPending?: boolean;
+  /** True while a match-end banner is on screen — the exits wait for it. */
+  adPending?: boolean;
+  /** Merlin Pass — no banner before rematch or the hall. */
+  adsExempt?: boolean;
   onRematch: () => void;
   onMenu: () => void;
 }
@@ -62,6 +66,8 @@ export function GameOverModal({
   moveCount,
   showcase,
   rematchPending = false,
+  adPending = false,
+  adsExempt = false,
   onRematch,
   onMenu,
 }: GameOverModalProps) {
@@ -144,15 +150,25 @@ export function GameOverModal({
               type="button"
               className="mc-btn mc-btn-primary flex items-center justify-center gap-2"
               onClick={onRematch}
-              disabled={rematchPending}
+              disabled={rematchPending || adPending}
             >
               {showcase ? <RotateCw size={15} /> : <Swords size={15} />}{" "}
-              {showcase ? "Another duel" : rematchPending ? "Waiting…" : "Rematch"}
+              {showcase ? "Another duel" : rematchPending ? "Waiting…" : adPending ? "Unfurling…" : "Rematch"}
             </button>
-            <button type="button" className="mc-btn flex items-center justify-center gap-2" onClick={onMenu}>
-              <Home size={15} /> Great hall
+            <button
+              type="button"
+              className="mc-btn flex items-center justify-center gap-2"
+              onClick={onMenu}
+              disabled={adPending}
+            >
+              <Home size={15} /> {adPending ? "Unfurling…" : "Great hall"}
             </button>
           </div>
+          {adsExempt ? null : (
+            <p className="mt-3 text-[0.68rem] italic text-[#6a5334]">
+              A short banner plays before you leave the field.
+            </p>
+          )}
           <button
             type="button"
             className="mc-btn mt-2 flex w-full items-center justify-center gap-2"
