@@ -32,7 +32,13 @@ export function AdBreakOverlay({ session }: AdBreakOverlayProps) {
     session.phase === "house" && session.skipAfter !== null && elapsed >= session.skipAfter && session.onSkip;
 
   const title =
-    session.kind === "undo" ? "Take back" : session.kind === "redo-point" ? "A banner for the field" : "Leaving the field";
+    session.kind === "undo"
+      ? "Take back"
+      : session.kind === "redo-point"
+        ? "A banner for the field"
+        : session.kind === "new-duel"
+          ? "Returning to the hall"
+          : "Leaving the field";
   const subtitle =
     session.phase === "seeking"
       ? "Unfurling a sponsored missive…"
@@ -40,7 +46,9 @@ export function AdBreakOverlay({ session }: AdBreakOverlayProps) {
         ? "Watch to the end — the last move will then be taken back."
         : session.kind === "redo-point"
           ? "Watch to the end — one take-back is added to today's purse."
-          : "When this missive ends you may leave the field.";
+          : session.kind === "new-duel"
+            ? "When this missive ends you return to the Great Hall."
+            : "When this missive ends you may leave the field.";
 
   return (
     <div

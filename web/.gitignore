@@ -4,14 +4,15 @@ node_modules
 # build
 dist
 dist-ssr
+.vercel
 
 # env
 .env
 *.local
 
-# Native
-ios/
-android/
+# Native *build* output is ignored inside android/.gitignore and
+# ios/.gitignore. Do not ignore those folders — the store shells belong
+# in the repo so Android, iOS and desktop can change independently.
 
 # Expo
 .expo

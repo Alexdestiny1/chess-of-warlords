@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Copy, Home, PauseCircle, RotateCw, Swords } from "lucide-react";
+import { Home, PauseCircle, RotateCw, Swords } from "lucide-react";
 
 import { DEMO_REMATCH_DELAY_MS } from "../core/gameController";
 import type { Difficulty, EndReason, Faction, GameResult } from "../core/types";
@@ -25,7 +25,6 @@ export interface ShowcaseOutcome {
 
 interface GameOverModalProps {
   result: GameResult;
-  pgn: string;
   playerColor: Faction;
   versusComputer: boolean;
   moveCount: number;
@@ -60,7 +59,6 @@ const ENGINE_NAME: Record<Difficulty, string> = {
 
 export function GameOverModal({
   result,
-  pgn,
   playerColor,
   versusComputer,
   moveCount,
@@ -71,8 +69,6 @@ export function GameOverModal({
   onRematch,
   onMenu,
 }: GameOverModalProps) {
-  const [copied, setCopied] = useState(false);
-
   const draw = result.winner === null;
   const playerWon = versusComputer && result.winner === playerColor;
   const headline = draw
@@ -89,63 +85,47 @@ export function GameOverModal({
             ? "IVORY TRIUMPHS"
             : "OBSIDIAN TRIUMPHS";
 
-  const copyPgn = async (): Promise<void> => {
-    try {
-      await navigator.clipboard.writeText(pgn);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.warn("[ui] clipboard unavailable", error);
-    }
-  };
-
-  // A showcase is watched, so the final position is the picture: the backdrop
-  // stays thin and unblurred there instead of hiding the hall behind the card.
   return (
     <div
       className={`mc-modal-pad pointer-events-auto absolute inset-0 z-30 flex items-center justify-center ${
         showcase ? "bg-black/35" : "bg-black/65 backdrop-blur-[3px]"
       }`}
     >
-      <div className="mc-parchment mc-goldleaf mc-rise w-full max-w-md overflow-hidden">
-        <div className="px-6 pb-6 pt-7 text-center">
+      <div className="mc-parchment mc-goldleaf mc-rise mc-verdict w-full overflow-hidden">
+        <div className="text-center">
           {showcase ? (
-            <p className="mc-display text-[0.55rem] tracking-[0.42em] text-[#8a6b3a]">
+            <p className="mc-display text-[0.5rem] tracking-[0.42em] text-[#8a6b3a]">
               AI VS AI · DUEL {showcase.round}
             </p>
           ) : null}
 
-          <div className={`flex justify-center gap-3 ${showcase ? "mt-3" : ""}`}>
+          <div className={`flex justify-center gap-2 ${showcase ? "mt-2" : ""}`}>
             {result.winner ? (
-              <Crest faction={result.winner} size={44} active />
+              <Crest faction={result.winner} size={32} active />
             ) : (
               <>
-                <Crest faction="w" size={34} />
-                <Crest faction="b" size={34} />
+                <Crest faction="w" size={26} />
+                <Crest faction="b" size={26} />
               </>
             )}
           </div>
 
-          <h2 className="mc-display mt-4 text-3xl font-bold tracking-[0.14em] text-[#43301a]">{headline}</h2>
-          <div className="mc-rule mx-auto mt-2 w-40 opacity-70" />
-          <p className="mt-2 text-sm italic text-[#6a5334]">{REASON_COPY[result.reason]}</p>
+          <h2 className="mc-display mc-verdict-title mt-2 font-bold tracking-[0.14em] text-[#43301a]">{headline}</h2>
+          <div className="mc-rule mx-auto mt-1.5 w-28 opacity-70" />
+          <p className="mt-1.5 text-sm italic text-[#6a5334]">{REASON_COPY[result.reason]}</p>
 
           {showcase ? (
-            <p className="mc-display mt-2 text-[0.6rem] tracking-[0.24em] text-[#7d6236]">
+            <p className="mc-display mt-1.5 text-[0.55rem] tracking-[0.24em] text-[#7d6236]">
               {ENGINE_NAME[showcase.white]} <span className="text-[#a2854c]">vs</span> {ENGINE_NAME[showcase.black]} ·{" "}
               {moveCount} {moveCount === 1 ? "move" : "moves"}
             </p>
           ) : null}
 
-          <div className="mt-5 max-h-24 overflow-y-auto rounded-sm border border-[#8a652255] bg-[#00000010] p-3 text-left font-mono text-[0.7rem] leading-relaxed text-[#4a3a24]">
-            {pgn.length > 0 ? pgn : "1. (no moves)"}
-          </div>
-
           {showcase?.autoRematch ? (
             <NextDuelCountdown getRemaining={showcase.getRematchRemaining} onHold={showcase.onHold} />
           ) : null}
 
-          <div className="mt-5 grid grid-cols-2 gap-2">
+          <div className="mt-4 grid grid-cols-2 gap-2">
             <button
               type="button"
               className="mc-btn mc-btn-primary flex items-center justify-center gap-2"
@@ -165,17 +145,10 @@ export function GameOverModal({
             </button>
           </div>
           {adsExempt ? null : (
-            <p className="mt-3 text-[0.68rem] italic text-[#6a5334]">
+            <p className="mt-2.5 text-[0.62rem] italic text-[#6a5334]">
               A short banner plays before you leave the field.
             </p>
           )}
-          <button
-            type="button"
-            className="mc-btn mt-2 flex w-full items-center justify-center gap-2"
-            onClick={() => void copyPgn()}
-          >
-            {copied ? <Check size={15} /> : <Copy size={15} />} {copied ? "Copied" : "Copy record (PGN)"}
-          </button>
         </div>
       </div>
     </div>

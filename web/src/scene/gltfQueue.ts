@@ -12,6 +12,8 @@
 
 import type { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
+import { cachedArrayBuffer } from "../net/cachedFetch";
+
 export type LoadedGltf = Awaited<ReturnType<GLTFLoader["loadAsync"]>>;
 
 const MAX_PARALLEL_DOWNLOADS = 4;
@@ -41,7 +43,11 @@ export async function loadGltf(
   let last: unknown = new Error(`could not load ${url}`);
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
-      return await withDownloadSlot(() => loader.loadAsync(url));
+      return await withDownloadSlot(async () => {
+        const data = await cachedArrayBuffer(url);
+        const path = url.slice(0, url.lastIndexOf("/") + 1);
+        return loader.parseAsync(data, path);
+      });
     } catch (error) {
       last = error;
       if (attempt === attempts - 1) break;

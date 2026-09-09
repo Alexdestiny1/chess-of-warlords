@@ -1,4 +1,4 @@
-import type { AdKind } from "./config";
+import { isInterstitial, type AdKind } from "./config";
 
 /** Statuses that mean Google did not put a creative on screen. */
 const NO_FILL = new Set([
@@ -39,13 +39,13 @@ export function shouldPlayHouse(options: {
 /**
  * Whether the gated action should run after the break.
  *
- * Match-end is an interstitial: skip, view or no-fill all let the player leave.
- * AI take-back is rewarded: a completed view (or a no-fill, so the button
- * never bricks) grants the undo.
- * Hall banners that mint a take-back point only pay out on a completed view.
+ * Match-end and new-duel are interstitials: skip, view or no-fill all let the
+ * player leave. AI take-back is rewarded: a completed view (or a no-fill, so
+ * the button never bricks) grants the undo. Hall banners that mint a take-back
+ * point only pay out on a completed view.
  */
 export function shouldProceed(kind: AdKind, fill: AdFill): boolean {
-  if (kind === "match-end") return true;
+  if (isInterstitial(kind)) return true;
   if (kind === "redo-point") return fill === "viewed";
   return fill === "viewed" || fill === "noFill";
 }

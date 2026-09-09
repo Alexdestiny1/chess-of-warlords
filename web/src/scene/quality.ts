@@ -149,6 +149,12 @@ export const QUALITY_ORDER: QualityPreset[] = ["low", "medium", "high", "ultra"]
  */
 export function detectQualityPreset(): QualityPreset {
   if (typeof window === "undefined") return "high";
+  const native = document.documentElement.classList.contains("mc-native");
+  const mobileUa = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+  // The Android WebView often reports a mouse and 8 cores, which used to land
+  // phones on High — bloom, 2K shadows and idle skeletons in a WebView. Too
+  // heavy. Native and phone UAs start on Low; Settings can still raise it.
+  if (native || mobileUa) return "low";
   const isTouch = window.matchMedia("(pointer: coarse)").matches;
   const cores = navigator.hardwareConcurrency ?? 4;
   const reported = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;

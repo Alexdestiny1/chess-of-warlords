@@ -6,6 +6,7 @@ import {
   GUN_AUDIO_URLS,
   type GunVoice,
 } from "../assets/generated";
+import { cachedArrayBuffer } from "../net/cachedFetch";
 import type { ArenaTheme } from "../scene/arena";
 import { DEFAULT_ARENA } from "../scene/arena";
 import type { Faction, PieceKind } from "../core/types";
@@ -424,8 +425,7 @@ export class AudioManager {
     await Promise.all(
       entries.map(async ([key, url]) => {
         try {
-          const response = await fetch(url);
-          const raw = await response.arrayBuffer();
+          const raw = await cachedArrayBuffer(url);
           const ctx = this.ctx;
           if (!ctx) return;
           const buffer = await ctx.decodeAudioData(raw);
@@ -496,8 +496,7 @@ export class AudioManager {
     if (pending) return pending;
     const job = (async () => {
       try {
-        const response = await fetch(ARENA_SCORES[theme].url);
-        const raw = await response.arrayBuffer();
+        const raw = await cachedArrayBuffer(ARENA_SCORES[theme].url);
         const ctx = this.ctx;
         if (!ctx) return;
         this.scoreBuffers.set(theme, await ctx.decodeAudioData(raw));
@@ -671,8 +670,7 @@ export class AudioManager {
     if (pending) return pending;
     const job = (async () => {
       try {
-        const response = await fetch(url);
-        const raw = await response.arrayBuffer();
+        const raw = await cachedArrayBuffer(url);
         const ctx = this.ctx;
         if (!ctx) {
           this.shotLoads.delete(url);
@@ -805,8 +803,7 @@ export class AudioManager {
     if (pending) return pending;
     const job = (async () => {
       try {
-        const response = await fetch(url);
-        const raw = await response.arrayBuffer();
+        const raw = await cachedArrayBuffer(url);
         const ctx = this.ctx;
         if (!ctx) {
           // Mixer went away mid-flight — let a later capture try again.
@@ -1892,6 +1889,16 @@ export class AudioManager {
     this.master.gain.cancelScheduledValues(now);
     this.master.gain.setValueAtTime(this.master.gain.value, now);
     this.master.gain.linearRampToValueAtTime(muted ? 0 : 1, now + 0.35);
+  }
+
+  /** Silence the whole graph while the app is in the background. */
+  holdForBackground(): void {
+    void this.ctx?.suspend();
+  }
+
+  /** Bring the mixer back after the player returns. */
+  releaseFromBackground(): void {
+    if (this.ctx?.state === "suspended") void this.ctx.resume();
   }
 
   dispose(): void {

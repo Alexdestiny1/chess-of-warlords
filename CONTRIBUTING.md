@@ -46,7 +46,12 @@ Types in use:
 | `test` | Tests only |
 | `chore` | Tooling, dependencies, housekeeping |
 
-Common scopes: `scene`, `pieces`, `board`, `audio`, `ai`, `ui`, `hud`, `assets`, `build`.
+Common scopes: `scene`, `pieces`, `board`, `audio`, `ai`, `ui`, `hud`, `assets`, `build`,
+`android`, `ios`, `desktop`, `ads`.
+
+Use `android` / `ios` / `desktop` only when the diff is the store shell. Shared
+game code (anything under `web/src`) uses a game scope (`ui`, `scene`, …) so it
+does not silently skip the other platforms. See `web/PLATFORMS.md`.
 
 Examples:
 

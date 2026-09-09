@@ -65,8 +65,8 @@
     calc(var(--mc-edge) + var(--mc-safe-left));
 }
 
-/* Bottom-left corner (the chronicle sigil and its panel): clear of the home
-   bar, and of a side cutout when the phone is held sideways. */
+/* Bottom-left corner (phone spoils tray): clear of the home bar, and of a
+   side cutout when the phone is held sideways. */
 .mc-hud-corner {
   --mc-edge: 0.75rem;
   padding: var(--mc-edge) var(--mc-edge) calc(var(--mc-edge) + var(--mc-safe-bottom))
@@ -80,37 +80,12 @@
   }
 }
 
-/* The flank rail (spoils above, move record below) and the frame counter —
-   desktop and tablet only, but a tablet in landscape still has a home bar and
-   rounded corners. The rail is anchored top AND bottom so the record grows into
-   whatever height the screen has left, stopping clear of the corner transport. */
+/* The flank rail (captured spoils under the top bar) and the frame counter —
+   desktop and tablet only. A tablet in landscape still has a home bar and
+   rounded corners, so the right inset is paid. */
 .mc-side-rail {
   top: calc(6rem + var(--mc-safe-top));
   right: calc(1rem + var(--mc-safe-right));
-  bottom: calc(3.6rem + var(--mc-safe-bottom));
-}
-
-/* The record slides in from its own edge rather than rising like the spoils —
-   it belongs to the flank, so it should read as unrolling from it. */
-.mc-rail-ledger {
-  animation: mc-rail-in 300ms cubic-bezier(0.2, 1.2, 0.35, 1) both;
-}
-
-@keyframes mc-rail-in {
-  from {
-    opacity: 0;
-    transform: translateX(18px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .mc-rail-ledger {
-    animation: none;
-  }
 }
 
 .mc-fps {
@@ -390,8 +365,146 @@
   box-shadow: 0 0 18px rgba(216, 177, 99, 0.35);
 }
 
+.mc-menu {
+  justify-content: flex-start;
+}
+
+.mc-menu-hero {
+  margin-bottom: 1.35rem;
+}
+
+.mc-menu-kicker {
+  font-size: 0.68rem;
+}
+
+.mc-menu-hero h1 {
+  margin-top: 0.45rem;
+  font-size: clamp(1.7rem, 4.2vw, 3.4rem);
+  letter-spacing: 0.08em;
+  line-height: 1.12;
+}
+
+.mc-menu-flourish {
+  margin-top: 0.7rem;
+}
+
+.mc-menu-tagline {
+  margin-top: 0.7rem;
+  font-size: 0.875rem;
+}
+
 .mc-menu > .mc-slate {
-  max-height: calc(100% - 6.5rem);
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: none;
+}
+
+.mc-verdict {
+  max-width: 20rem;
+  padding: 1rem 1.15rem 1.1rem;
+}
+
+.mc-verdict-title {
+  font-size: 1.45rem;
+}
+
+/* Native phone / short landscape: tiny title, the panel owns the screen. */
+.mc-native .mc-modal-pad {
+  padding: calc(0.4rem + var(--mc-safe-top)) calc(0.65rem + var(--mc-safe-right))
+    calc(0.4rem + var(--mc-safe-bottom)) calc(0.65rem + var(--mc-safe-left));
+}
+
+.mc-native .mc-menu-kicker,
+.mc-native .mc-menu-flourish,
+.mc-native .mc-menu-tagline,
+.mc-native .mc-menu-hint {
+  display: none;
+}
+
+.mc-native .mc-menu-hero {
+  margin-bottom: 0.35rem;
+}
+
+.mc-native .mc-menu-hero h1 {
+  margin: 0;
+  font-size: 1.12rem;
+  letter-spacing: 0.16em;
+}
+
+.mc-native .mc-menu > .mc-slate {
+  width: min(28rem, 100%);
+  max-width: 28rem;
+  padding: 0.65rem 0.8rem 0.75rem;
+}
+
+.mc-native .mc-chip {
+  padding-top: 0.38rem;
+  padding-bottom: 0.38rem;
+}
+
+.mc-native .mc-menu-tabs {
+  margin-bottom: 0.55rem;
+}
+
+.mc-native .mc-panel-foot {
+  margin-top: 0.4rem;
+}
+
+.mc-online-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.mc-settings-slim {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  align-self: center;
+  padding: 0.15rem 0.5rem;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.58rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #a89268;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.mc-settings-slim:hover {
+  color: #e2c98f;
+}
+
+.mc-native .mc-code-input {
+  min-height: 2.2rem;
+  padding: 0.35rem 0.7rem;
+}
+
+.mc-native .mc-scroll .space-y-5 > * + * {
+  margin-top: 0.65rem;
+}
+
+.mc-native .mc-scroll .mt-5 {
+  margin-top: 0.65rem;
+}
+
+.mc-native .mc-arena-swatch {
+  height: 2.15rem;
+}
+
+.mc-native .mc-army-swatch {
+  height: 2.15rem;
+}
+
+.mc-native .mc-verdict {
+  max-width: 18.5rem;
+  padding: 0.75rem 0.9rem 0.85rem;
+}
+
+.mc-native .mc-verdict-title {
+  font-size: 1.22rem;
 }
 
 .mc-join-row {
@@ -539,6 +652,53 @@
   color: #d8b163;
 }
 
+.mc-landscape-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(1.25rem + var(--mc-safe-top)) calc(1.25rem + var(--mc-safe-right))
+    calc(1.25rem + var(--mc-safe-bottom)) calc(1.25rem + var(--mc-safe-left));
+  background: rgba(5, 6, 10, 0.88);
+  backdrop-filter: blur(6px);
+}
+
+.mc-landscape-card {
+  width: min(20rem, 100%);
+  padding: 1.6rem 1.35rem 1.45rem;
+  text-align: center;
+  cursor: pointer;
+}
+
+.mc-landscape-phone {
+  display: inline-flex;
+  color: #d8b163;
+  margin-bottom: 0.85rem;
+  animation: mc-turn-phone 1.8s ease-in-out infinite;
+}
+
+@keyframes mc-turn-phone {
+  0%,
+  18% {
+    transform: rotate(0deg);
+  }
+  45%,
+  70% {
+    transform: rotate(90deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mc-landscape-phone {
+    animation: none;
+  }
+}
+
 @media (orientation: landscape) and (max-height: 520px) {
   .mc-pass-orb {
     width: 2.2rem;
@@ -547,119 +707,6 @@
 
   .mc-pass-panel {
     max-height: calc(100dvh - 3.4rem - var(--mc-safe-top) - var(--mc-safe-bottom));
-  }
-}
-
-/* --------------------------------------------------- chronicle corner */
-
-/* Small sigil in the bottom-left corner. Collapsed by default so the board
-   owns the screen; it unfurls the ledger only when asked. */
-.mc-chronicle-fab {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 2.6rem;
-  height: 2.6rem;
-  border-radius: 4px;
-  color: #e8d5aa;
-  border: 1px solid rgba(216, 177, 99, 0.45);
-  background: linear-gradient(180deg, #35302a 0%, #201d19 55%, #16130f 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 226, 170, 0.22),
-    0 8px 22px rgba(0, 0, 0, 0.6);
-  cursor: pointer;
-  transition:
-    transform 160ms cubic-bezier(0.2, 1.4, 0.4, 1),
-    color 160ms ease,
-    border-color 160ms ease,
-    box-shadow 200ms ease;
-}
-
-.mc-chronicle-fab::after {
-  content: "";
-  position: absolute;
-  inset: 3px;
-  border: 1px solid rgba(138, 101, 34, 0.35);
-  border-radius: 2px;
-  pointer-events: none;
-}
-
-.mc-chronicle-fab:hover {
-  color: #fff4dc;
-  transform: translateY(-2px);
-  border-color: rgba(246, 223, 165, 0.85);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 240, 205, 0.3),
-    0 10px 26px rgba(0, 0, 0, 0.6),
-    0 0 22px rgba(216, 177, 99, 0.28);
-}
-
-.mc-chronicle-fab:active {
-  transform: translateY(1px) scale(0.95);
-}
-
-.mc-chronicle-fab[data-open] {
-  color: #1a1408;
-  border-color: rgba(246, 223, 165, 0.9);
-  background: linear-gradient(180deg, rgba(216, 177, 99, 0.95), rgba(138, 101, 34, 0.95));
-  box-shadow: 0 0 20px rgba(216, 177, 99, 0.4);
-}
-
-/* Ply counter — replays a little flare every time the number changes. */
-.mc-chronicle-badge {
-  position: absolute;
-  top: -0.36rem;
-  right: -0.36rem;
-  min-width: 1.05rem;
-  padding: 0 0.22rem;
-  height: 1.05rem;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  font-family: "Cinzel", Georgia, serif;
-  font-size: 0.56rem;
-  letter-spacing: 0.02em;
-  color: #1c1508;
-  background: linear-gradient(180deg, #f6dfa5, #c69e54);
-  border: 1px solid rgba(28, 21, 8, 0.5);
-  animation: mc-badge-pop 620ms cubic-bezier(0.2, 1.5, 0.35, 1) both;
-}
-
-@keyframes mc-badge-pop {
-  0% {
-    transform: scale(0.4);
-    box-shadow: 0 0 0 rgba(246, 223, 165, 0);
-  }
-  45% {
-    transform: scale(1.22);
-    box-shadow: 0 0 16px rgba(246, 223, 165, 0.9);
-  }
-  100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 rgba(246, 223, 165, 0);
-  }
-}
-
-.mc-chronicle-panel {
-  transform-origin: bottom left;
-  animation: mc-chronicle-in 260ms cubic-bezier(0.2, 1.25, 0.35, 1) both;
-}
-
-@keyframes mc-chronicle-in {
-  from {
-    opacity: 0;
-    transform: translateY(14px) scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .mc-chronicle-panel,
-  .mc-chronicle-badge {
-    animation: none;
   }
 }
 
@@ -877,20 +924,6 @@
   background: linear-gradient(90deg, transparent, rgba(216, 177, 99, 0.75), transparent);
 }
 
-.mc-history {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(138, 101, 34, 0.8) transparent;
-}
-
-.mc-history::-webkit-scrollbar {
-  width: 6px;
-}
-
-.mc-history::-webkit-scrollbar-thumb {
-  background: rgba(138, 101, 34, 0.7);
-  border-radius: 3px;
-}
-
 /* ------------------------------------------------ scrollable panel body */
 
 /* Panels cap their height against the viewport and scroll their middle
@@ -953,11 +986,11 @@
 /* The hero title yields space first on short viewports. */
 @media (max-height: 780px) {
   .mc-menu-hero {
-    margin-bottom: 1rem;
+    margin-bottom: 0.7rem;
   }
 
   .mc-menu-hero h1 {
-    font-size: 2.5rem;
+    font-size: 1.7rem;
   }
 
   .mc-menu-hint {
@@ -976,19 +1009,81 @@
 }
 
 @media (max-height: 620px) {
-
-  .mc-menu-hero p:last-child,
-  .mc-menu-hero .mc-rule {
+  .mc-menu-kicker,
+  .mc-menu-tagline,
+  .mc-menu-flourish {
     display: none;
   }
 
   .mc-menu-hero h1 {
-    font-size: 1.9rem;
+    font-size: 1.2rem;
+    margin: 0;
   }
 
   .mc-menu-hero {
-    margin-bottom: 0.6rem;
+    margin-bottom: 0.35rem;
   }
+
+  .mc-menu-tabs {
+    margin-bottom: 0.55rem;
+  }
+
+  .mc-verdict {
+    max-width: 18.5rem;
+    padding: 0.75rem 0.9rem 0.85rem;
+  }
+
+  .mc-verdict-title {
+    font-size: 1.2rem;
+  }
+}
+
+/* Phone / tablet: hide desktop-only HUD chrome even in landscape (width > 600). */
+@media (pointer: coarse) and (hover: none) {
+  .mc-icon-btn[data-wide-only="true"] {
+    display: none;
+  }
+
+  .mc-hud-actions {
+    flex-wrap: nowrap;
+    max-width: min(100%, 22rem);
+  }
+
+  .mc-tally {
+    width: 9.6rem;
+    padding: 0.28rem 0.42rem 0.32rem;
+  }
+}
+
+.mc-spoils-fab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.32rem 0.6rem;
+  border-radius: 3px;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.58rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #e8d5aa;
+  border: 1px solid rgba(216, 177, 99, 0.45);
+  background: linear-gradient(180deg, #35302a 0%, #16130f 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 226, 170, 0.18), 0 6px 16px rgba(0, 0, 0, 0.5);
+}
+
+.mc-spoils-fab span {
+  letter-spacing: 0.06em;
+  color: #f2dcaa;
+}
+
+.mc-spoils-fab[data-open] {
+  color: #1a1408;
+  background: linear-gradient(180deg, rgba(216, 177, 99, 0.95), rgba(138, 101, 34, 0.95));
+  border-color: rgba(246, 223, 165, 0.9);
+}
+
+.mc-spoils-fab[data-open] span {
+  color: #1a1408;
 }
 
 /* --------------------------------------------- phone: hand-sized interface */
@@ -1027,247 +1122,12 @@
     display: none;
   }
 
-  .mc-chronicle-fab {
-    width: 2.35rem;
-    height: 2.35rem;
+  .mc-hud-actions {
+    flex-wrap: nowrap;
   }
 
   .mc-cam-menu {
     width: 11rem;
-  }
-}
-
-/* ------------------------------------------------------- move ledger */
-
-.mc-ledger-tool {
-  display: grid;
-  place-items: center;
-  width: 1.4rem;
-  height: 1.4rem;
-  border-radius: 2px;
-  border: 1px solid rgba(216, 177, 99, 0.28);
-  background: rgba(20, 18, 15, 0.6);
-  color: #cbb68d;
-  cursor: pointer;
-  transition:
-    color 160ms ease,
-    border-color 160ms ease,
-    background 160ms ease,
-    transform 140ms cubic-bezier(0.2, 1.4, 0.4, 1);
-}
-
-.mc-ledger-tool:hover:not(:disabled) {
-  color: #fff3d8;
-  border-color: rgba(246, 223, 165, 0.75);
-  transform: translateY(-1px);
-}
-
-.mc-ledger-tool:active:not(:disabled) {
-  transform: translateY(1px) scale(0.94);
-}
-
-.mc-ledger-tool:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.mc-ledger-tool[data-active="true"] {
-  color: #1a1408;
-  background: linear-gradient(180deg, rgba(216, 177, 99, 0.9), rgba(138, 101, 34, 0.9));
-  border-color: rgba(246, 223, 165, 0.85);
-}
-
-.mc-ledger-row {
-  display: grid;
-  grid-template-columns: 1.6rem 1fr 1fr;
-  align-items: center;
-  gap: 0.15rem;
-  padding: 0.05rem 0.15rem;
-  border-radius: 2px;
-  animation: mc-ledger-in 320ms cubic-bezier(0.2, 1.2, 0.35, 1) both;
-}
-
-.mc-ledger-row:nth-child(odd) {
-  background: rgba(255, 255, 255, 0.028);
-}
-
-@keyframes mc-ledger-in {
-  from {
-    opacity: 0;
-    transform: translateX(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.mc-ledger-no {
-  font-family: "Cinzel", Georgia, serif;
-  font-size: 0.6rem;
-  letter-spacing: 0.04em;
-  color: #7b6c53;
-  text-align: right;
-  padding-right: 0.35rem;
-  border-right: 1px solid rgba(138, 101, 34, 0.22);
-}
-
-.mc-ledger-move {
-  display: flex;
-  align-items: baseline;
-  gap: 0.08rem;
-  justify-content: flex-start;
-  font-family: "Cinzel", Georgia, serif;
-  font-size: 0.78rem;
-  letter-spacing: 0.02em;
-  color: #e8d8b4;
-  padding: 0.22rem 0.4rem;
-  border-radius: 2px;
-  border: 1px solid transparent;
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
-  transition:
-    background 140ms ease,
-    color 140ms ease,
-    border-color 140ms ease;
-}
-
-.mc-ledger-move[data-side="b"] {
-  color: #c6ab7e;
-}
-
-.mc-ledger-move:hover {
-  background: rgba(216, 177, 99, 0.13);
-  border-color: rgba(216, 177, 99, 0.35);
-  color: #fff3d6;
-}
-
-.mc-ledger-move[data-active="true"] {
-  background: rgba(106, 169, 255, 0.16);
-  border-color: rgba(106, 169, 255, 0.55);
-  color: #e6f1ff;
-}
-
-.mc-ledger-move[data-last="true"] {
-  color: #1d1608;
-  background: linear-gradient(180deg, rgba(246, 223, 165, 0.92), rgba(198, 158, 84, 0.92));
-  border-color: rgba(255, 240, 205, 0.6);
-  animation: mc-ledger-flare 1.1s ease-out 1;
-}
-
-@keyframes mc-ledger-flare {
-  0% {
-    box-shadow: 0 0 0 rgba(246, 223, 165, 0);
-  }
-  30% {
-    box-shadow: 0 0 18px rgba(246, 223, 165, 0.75);
-  }
-  100% {
-    box-shadow: 0 0 0 rgba(246, 223, 165, 0);
-  }
-}
-
-.mc-ledger-glyph {
-  font-size: 0.94rem;
-  line-height: 1;
-  transform: translateY(1px);
-}
-
-.mc-ledger-check {
-  color: #ff9a7d;
-  font-weight: 700;
-}
-
-.mc-ledger-move[data-last="true"] .mc-ledger-check,
-.mc-ledger-move[data-last="true"] .mc-ledger-mate {
-  color: #6d1c11;
-}
-
-.mc-ledger-mate {
-  color: #ff5f47;
-  font-weight: 700;
-}
-
-.mc-ledger-promo {
-  font-size: 0.82rem;
-  line-height: 1;
-  opacity: 0.85;
-}
-
-.mc-ledger-pending {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.18rem;
-  padding: 0.3rem 0.45rem;
-}
-
-.mc-ledger-pending i {
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: #d8b163;
-  animation: mc-pulse 1.2s ease-in-out infinite;
-}
-
-.mc-ledger-pending i:nth-child(2) {
-  animation-delay: 0.18s;
-}
-
-.mc-ledger-pending i:nth-child(3) {
-  animation-delay: 0.36s;
-}
-
-.mc-ledger-result {
-  text-shadow: 0 0 18px rgba(216, 177, 99, 0.5);
-}
-
-/* Read-back escape hatch: only present once the record has been scrolled away
-   from its own end, so the player can always get back to the move being played. */
-.mc-ledger-latest {
-  position: absolute;
-  bottom: 0.45rem;
-  left: 50%;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.22rem;
-  padding: 0.22rem 0.5rem;
-  border-radius: 999px;
-  font-family: "Cinzel", Georgia, serif;
-  font-size: 0.52rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: #1c1508;
-  border: 1px solid rgba(28, 21, 8, 0.5);
-  background: linear-gradient(180deg, #f6dfa5, #c69e54);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.55);
-  cursor: pointer;
-  transform: translateX(-50%);
-  animation: mc-latest-in 220ms cubic-bezier(0.2, 1.3, 0.35, 1) both;
-}
-
-.mc-ledger-latest:hover {
-  background: linear-gradient(180deg, #fff0cd, #d8b163);
-}
-
-.mc-ledger-latest:active {
-  transform: translateX(-50%) scale(0.94);
-}
-
-@keyframes mc-latest-in {
-  from {
-    opacity: 0;
-    transform: translate(-50%, 8px);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .mc-ledger-latest {
-    animation: none;
   }
 }
 

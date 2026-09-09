@@ -142,7 +142,7 @@ export function MainMenu({
     : "";
 
   return (
-    <div className="mc-menu mc-modal-pad pointer-events-auto absolute inset-0 flex flex-col items-center justify-center overflow-hidden">
+    <div className="mc-menu mc-modal-pad pointer-events-auto absolute inset-0 flex flex-col items-center overflow-hidden">
       <MerlinPassDock
         active={merlin.active}
         price={merlin.price}
@@ -151,20 +151,18 @@ export function MainMenu({
         onGrantDev={onGrantMerlinDev}
         onClearDev={onClearMerlinDev}
       />
-      <div className="mc-unfurl mc-menu-hero mb-6 shrink-0 text-center">
-        <p className="mc-display text-[0.68rem] tracking-[0.55em] text-[#c8ab74]">Anno Domini MCDXCII</p>
-        <h1 className="mc-display mc-title-glow mt-2 text-5xl font-bold text-[#f4e3bd] sm:text-6xl">
-          CHESS OF WARLORDS
-        </h1>
-        <div className="mc-rule mx-auto mt-3 w-64" />
-        <p className="mt-3 text-sm italic text-[#c5b28d]">Three armies. One board. Take the field.</p>
+      <div className="mc-unfurl mc-menu-hero shrink-0 text-center">
+        <p className="mc-display mc-menu-kicker tracking-[0.55em] text-[#c8ab74]">Anno Domini MCDXCII</p>
+        <h1 className="mc-display mc-title-glow font-bold text-[#f4e3bd]">CHESS OF WARLORDS</h1>
+        <div className="mc-rule mc-menu-flourish mx-auto w-64" />
+        <p className="mc-menu-tagline italic text-[#c5b28d]">Three armies. One board. Take the field.</p>
       </div>
 
       <div className="mc-slate mc-goldleaf mc-rise flex w-full min-h-0 max-w-md flex-col p-5 sm:p-6">
-        <div className="mb-5 grid shrink-0 grid-cols-3 gap-2">
+        <div className="mc-menu-tabs mb-5 grid shrink-0 grid-cols-3 gap-2">
           <button
             type="button"
-            className="mc-chip flex items-center justify-center gap-1.5 px-1 py-3"
+            className="mc-chip flex items-center justify-center gap-1.5 px-1"
             data-active={tab === "ai"}
             disabled={waiting}
             onClick={() => openTab("ai")}
@@ -173,7 +171,7 @@ export function MainMenu({
           </button>
           <button
             type="button"
-            className="mc-chip flex items-center justify-center gap-1.5 px-1 py-3"
+            className="mc-chip flex items-center justify-center gap-1.5 px-1"
             data-active={tab === "hotseat"}
             disabled={waiting}
             onClick={() => openTab("hotseat")}
@@ -182,7 +180,7 @@ export function MainMenu({
           </button>
           <button
             type="button"
-            className="mc-chip flex items-center justify-center gap-1.5 px-1 py-3"
+            className="mc-chip flex items-center justify-center gap-1.5 px-1"
             data-active={tab === "online"}
             onClick={() => openTab("online")}
           >
@@ -319,6 +317,36 @@ export function MainMenu({
                     <p className="mc-display mb-2 text-[0.62rem] tracking-[0.3em] text-[#a89268]">If you host — battleground</p>
                     <ArenaPicker chosen={muster.arena} onChoose={(arena) => onMuster({ ...muster, arena })} />
                   </div>
+                  <div className="mc-join">
+                    <p className="mc-display mb-1.5 text-[0.58rem] tracking-[0.28em] text-[#a89268]">Join with a code</p>
+                    <div className="mc-join-row">
+                      <input
+                        type="text"
+                        className="mc-code-input"
+                        value={joinCode}
+                        onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" && joinCode.trim().length >= 4) onJoinOnline(joinCode, offer());
+                        }}
+                        placeholder="ABC123"
+                        spellCheck={false}
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="characters"
+                        inputMode="text"
+                        maxLength={8}
+                        aria-label="Challenge code"
+                      />
+                      <button
+                        type="button"
+                        className="mc-btn mc-join-go"
+                        onClick={() => onJoinOnline(joinCode, offer())}
+                        disabled={joinCode.trim().length < 4}
+                      >
+                        Join
+                      </button>
+                    </div>
+                  </div>
                 </>
               )}
 
@@ -370,7 +398,7 @@ export function MainMenu({
                 </button>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="mc-online-foot">
                 <div className="mc-actions">
                   <button
                     type="button"
@@ -387,42 +415,12 @@ export function MainMenu({
                     <Crown size={15} /> Create challenge
                   </button>
                 </div>
-                <div className="mc-join">
-                  <p className="mc-display mb-1.5 text-[0.58rem] tracking-[0.28em] text-[#a89268]">Join with a code</p>
-                  <div className="mc-join-row">
-                    <input
-                      type="text"
-                      className="mc-code-input"
-                      value={joinCode}
-                      onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" && joinCode.trim().length >= 4) onJoinOnline(joinCode, offer());
-                      }}
-                      placeholder="ABC123"
-                      spellCheck={false}
-                      autoComplete="off"
-                      autoCorrect="off"
-                      autoCapitalize="characters"
-                      inputMode="text"
-                      maxLength={8}
-                      aria-label="Challenge code"
-                    />
-                    <button
-                      type="button"
-                      className="mc-btn mc-join-go"
-                      onClick={() => onJoinOnline(joinCode, offer())}
-                      disabled={joinCode.trim().length < 4}
-                    >
-                      Join
-                    </button>
-                  </div>
-                </div>
                 <button
                   type="button"
-                  className="mc-btn flex w-full items-center justify-center gap-2"
+                  className="mc-settings-slim"
                   onClick={onOpenSettings}
                 >
-                  <SettingsIcon size={14} /> Settings
+                  <SettingsIcon size={13} /> Settings
                 </button>
               </div>
             )

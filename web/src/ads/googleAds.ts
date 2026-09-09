@@ -1,4 +1,11 @@
-import { getAdSenseClient, googleBreakTimeoutMs, isAdTestMode, type AdKind } from "./config";
+import {
+  getAdMobInterstitialSlot,
+  getAdMobRewardedSlot,
+  getAdSenseClient,
+  googleBreakTimeoutMs,
+  isAdTestMode,
+  type AdKind,
+} from "./config";
 
 export interface AdConfigOptions {
   sound?: "on" | "off";
@@ -49,6 +56,10 @@ function loadScript(): Promise<void> {
     script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(client)}`;
     script.setAttribute("data-ad-client", client);
     script.setAttribute("data-ad-frequency-hint", "30s");
+    const interstitial = getAdMobInterstitialSlot();
+    const rewarded = getAdMobRewardedSlot();
+    if (interstitial) script.setAttribute("data-admob-interstitial-slot", interstitial);
+    if (rewarded) script.setAttribute("data-admob-rewarded-slot", rewarded);
     if (isAdTestMode()) script.setAttribute("data-adbreak-test", "on");
     script.addEventListener("load", () => resolve(), { once: true });
     script.addEventListener("error", () => resolve(), { once: true });
@@ -96,7 +107,14 @@ export async function requestGoogleBreak(
     const rewarded = kind === "undo" || kind === "redo-point";
     const placement: AdBreakPlacement = {
       type: rewarded ? "reward" : "next",
-      name: kind === "undo" ? "undo-move" : kind === "redo-point" ? "earn-redo" : "match-end",
+      name:
+        kind === "undo"
+          ? "undo-move"
+          : kind === "redo-point"
+            ? "earn-redo"
+            : kind === "new-duel"
+              ? "new-duel"
+              : "match-end",
       beforeAd: () => hooks.onBeforeAd?.(),
       adBreakDone: (info) => {
         window.clearTimeout(timer);

@@ -9,7 +9,7 @@ import {
   PREMOVE_DEPTH_CHOICES,
   THINK_FLOOR_CHOICES,
 } from "../core/gameController";
-import type { Faction, LedgerMove, PieceKind } from "../core/types";
+import type { Faction, PieceKind } from "../core/types";
 import {
   OnlineSession,
   type OnlineLobbyState,
@@ -27,7 +27,10 @@ import { useRedoPoints } from "../ads/useRedoPoints";
 import { useMerlinPass } from "../pass/useMerlinPass";
 import { GameOverModal } from "./GameOverModal";
 import { Hud } from "./Hud";
+import { LandscapeGate } from "./LandscapeGate";
 import { useHasKeyboard } from "./inputMode";
+import { useAppLifecycle } from "./useAppLifecycle";
+import { useLandscapeLock, useNeedsLandscape } from "./useLandscape";
 import { MainMenu, type MatchConfig } from "./MainMenu";
 import type { MusterChoice } from "./Muster";
 import { SettingsPanel, type GameSettings } from "./SettingsPanel";
@@ -243,6 +246,8 @@ export function GameShell() {
   const initialThinkFloor = useMemo<number>(() => loadThinkFloor(), []);
   /** Whether to print key hints at all — a phone has no `F` to press. */
   const hasKeyboard = useHasKeyboard();
+  const needsLandscape = useNeedsLandscape();
+  useLandscapeLock();
   const [settings, setSettings] = useState<GameSettings>(() => ({
     quality: detected,
     arena: DEFAULT_ARENA,
@@ -284,6 +289,24 @@ export function GameShell() {
   const [peerWantsRematch, setPeerWantsRematch] = useState(false);
   const [initialJoinCode] = useState<string>(() => readJoinCode());
   const adLock = useRef(false);
+  const backgroundPaused = useRef(false);
+
+  const onAppBackground = useCallback(() => {
+    audio.holdForBackground();
+    if (!controller.isPaused() && controller.getSnapshot().status === "playing") {
+      backgroundPaused.current = true;
+      controller.setPaused(true);
+    }
+  }, [controller]);
+
+  const onAppForeground = useCallback(() => {
+    audio.releaseFromBackground();
+    if (backgroundPaused.current) {
+      backgroundPaused.current = false;
+      controller.setPaused(false);
+    }
+  }, [controller]);
+  useAppLifecycle({ onBackground: onAppBackground, onForeground: onAppForeground });
 
   const applyGameMute = useCallback((muted: boolean) => {
     audio.setMuted(muted);
@@ -677,15 +700,15 @@ export function GameShell() {
     }
   }, [merlin]);
 
-  const afterMatchEndAd = useCallback(
-    (then: () => void) => {
+  const afterInterstitial = useCallback(
+    (kind: "match-end" | "new-duel", then: () => void) => {
       if (merlin.active) {
         then();
         return;
       }
       if (adLock.current) return;
       adLock.current = true;
-      void playAd("match-end")
+      void playAd(kind)
         .then(() => then())
         .finally(() => {
           adLock.current = false;
@@ -693,6 +716,16 @@ export function GameShell() {
     },
     [merlin.active, playAd],
   );
+
+  const handleNewDuel = useCallback(() => {
+    if (adLock.current && !merlin.active) return;
+    audio.blip("press");
+    const current = controller.getSnapshot();
+    if (current.status === "playing" && !controller.isPaused()) {
+      controller.setPaused(true);
+    }
+    afterInterstitial("new-duel", returnToMenu);
+  }, [afterInterstitial, controller, merlin.active, returnToMenu]);
 
   const handleRematch = useCallback(() => {
     const current = controller.getSnapshot();
@@ -793,10 +826,6 @@ export function GameShell() {
     audio.blip("press");
     controller.setDemoAutoRematch(false);
   }, [controller]);
-
-  const handlePreviewMove = useCallback((move: LedgerMove | null) => {
-    engineRef.current?.previewMove(move ? { from: move.from, to: move.to } : null);
-  }, []);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -920,9 +949,10 @@ export function GameShell() {
             snapshot={snapshot}
             muted={settings.muted}
             fps={fps}
-            onNewGame={returnToMenu}
+            onNewGame={handleNewDuel}
             onUndo={handleUndo}
             undoPending={adPlaying}
+            adPending={adPlaying}
             redoPurse={
               snapshot.mode === "online"
                 ? { remaining: redoPurse.remaining, max: redoPurse.max }
@@ -938,7 +968,6 @@ export function GameShell() {
             cameraFlipped={cameraFlipped}
             tactical={tactical}
             onToggleTactical={handleToggleTactical}
-            onPreviewMove={handlePreviewMove}
             onTogglePause={handleTogglePause}
             onDemoSpeed={handleDemoSpeed}
             onDemoLoop={handleDemoLoop}
@@ -1018,7 +1047,6 @@ export function GameShell() {
         (snapshot.mode !== "demo" || verdictReady) ? (
           <GameOverModal
             result={snapshot.result}
-            pgn={snapshot.pgn}
             playerColor={snapshot.playerColor}
             versusComputer={snapshot.mode === "ai"}
             moveCount={snapshot.history.length}
@@ -1037,8 +1065,8 @@ export function GameShell() {
                   }
                 : null
             }
-            onRematch={() => afterMatchEndAd(handleRematch)}
-            onMenu={() => afterMatchEndAd(returnToMenu)}
+            onRematch={() => afterInterstitial("match-end", handleRematch)}
+            onMenu={() => afterInterstitial("match-end", returnToMenu)}
           />
         ) : null}
 
@@ -1064,6 +1092,7 @@ export function GameShell() {
       </div>
 
       {adSession ? <AdBreakOverlay session={adSession} /> : null}
+      {needsLandscape ? <LandscapeGate /> : null}
     </div>
   );
 }

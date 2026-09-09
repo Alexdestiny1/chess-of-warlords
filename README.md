@@ -31,6 +31,7 @@ cd web && bun install && bun run dev
 - [Armies](#armies)
 - [Battlegrounds](#battlegrounds)
 - [Project structure](#project-structure)
+- [Platforms (Android, iOS, Windows)](#platforms-android-ios-windows)
 - [Architecture](#architecture)
 - [The computer opponent](#the-computer-opponent)
 - [Graphics presets](#graphics-presets)
@@ -638,6 +639,20 @@ pyramid, a line of muskets behind gunsmoke — laid over the same livery gradien
 knock-back, hover lift and full-brightness-when-chosen behaviour as the maps. The swatch grew from
 1.5rem to 2.5rem tall, because a painting in a 24px letterbox is a smear.
 
+## Platforms (Android, iOS, Windows)
+
+The game in `web/src` is shared. Store wrappers are separate so a later change
+can target one platform:
+
+| Folder | Target |
+| --- | --- |
+| `web/src/` | Shared hall (all platforms) |
+| `web/android/` | Google Play / APK |
+| `web/ios/` | App Store (not generated yet) |
+| `web/desktop/` | Microsoft Store / PC installer (not generated yet) |
+
+PC players use the website today. Details: [`web/PLATFORMS.md`](web/PLATFORMS.md).
+
 ## Project structure
 
 ```
@@ -647,8 +662,13 @@ knock-back, hover lift and full-brightness-when-chosen behaviour as the maps. Th
 ├── scripts/
 │   └── rewrite-commit-messages.sh
 └── web/
+    ├── PLATFORMS.md        how Android / iOS / Windows stay separate
+    ├── capacitor.config.ts Android + iOS shell config
+    ├── android/            Play Store project (Gradle, AdMob app id)
+    ├── ios/                App Store shell (add on a Mac)
+    ├── desktop/            Microsoft Store / PC wrapper (later)
     ├── index.html
-    ├── public/             icon, favicon, banner.jpg (share card), robots.txt (drop local .glb models here)
+    ├── public/             icon, favicon, banner.jpg (share card), ads.txt
     └── src/
         ├── core/           chess state — never imports three.js
         │   ├── gameController.ts   owns chess.js, clocks, undo, AI turns, snapshots

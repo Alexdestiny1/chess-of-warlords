@@ -25,10 +25,13 @@ describe("ad policy", () => {
     expect(shouldPlayHouse({ forceHouse: false, allowHouse: false, googleStatus: "noAdPreloaded" })).toBe(false);
   });
 
-  it("always lets the player leave after a match-end break", () => {
+  it("always lets the player leave after a match-end or new-duel break", () => {
     expect(shouldProceed("match-end", "viewed")).toBe(true);
     expect(shouldProceed("match-end", "dismissed")).toBe(true);
     expect(shouldProceed("match-end", "noFill")).toBe(true);
+    expect(shouldProceed("new-duel", "viewed")).toBe(true);
+    expect(shouldProceed("new-duel", "dismissed")).toBe(true);
+    expect(shouldProceed("new-duel", "noFill")).toBe(true);
   });
 
   it("grants take-back only after a completed view or a no-fill", () => {

@@ -15,7 +15,6 @@ import {
   Repeat,
   RotateCcw,
   RotateCw,
-  ScrollText,
   Settings as SettingsIcon,
   Skull,
   Swords,
@@ -23,14 +22,12 @@ import {
   Video,
   Volume2,
   VolumeX,
-  X,
 } from "lucide-react";
 
-import type { ElapsedState, Faction, GameSnapshot, LedgerMove, PieceKind } from "../core/types";
+import type { ElapsedState, Faction, GameSnapshot, PieceKind } from "../core/types";
 import type { CameraPreset, ShowcaseCamera } from "../scene/sceneEngine";
 import { Crest, Hourglass, pieceGlyph } from "./Heraldry";
 import { useHasKeyboard } from "./inputMode";
-import { MoveLedger } from "./MoveLedger";
 import { Tooltip, type TooltipSide } from "./Tooltip";
 
 interface HudProps {
@@ -41,6 +38,8 @@ interface HudProps {
   onUndo: () => void;
   /** True while a take-back banner is playing — the button waits for it. */
   undoPending?: boolean;
+  /** True while a New Duel interstitial is on screen. */
+  adPending?: boolean;
   /** Live-opponent purse. Absent in every other mode. */
   redoPurse?: { remaining: number; max: number } | null;
   /** Merlin Pass — take-backs against the machine need no banner. */
@@ -54,7 +53,6 @@ interface HudProps {
   cameraFlipped: boolean;
   tactical: boolean;
   onToggleTactical: () => void;
-  onPreviewMove: (move: LedgerMove | null) => void;
   onTogglePause: () => void;
   onDemoSpeed: (speed: number) => void;
   onDemoLoop: (loop: boolean) => void;
@@ -101,32 +99,10 @@ function formatClock(ms: number): string {
 }
 
 /**
- * Elapsed time reads the other way round from the countdown: it floors, so the
- * meter shows 0:00 for the first second instead of jumping straight to 0:01, and
- * it grows an hours field only once a battle actually runs that long.
+ * Elapsed time floors, so the meter shows 0:00 for the first second instead of
+ * jumping straight to 0:01, and it grows an hours field only once a battle
+ * actually runs that long.
  */
-/**
- * Whether there is room for the record to live beside the board.
- *
- * The ledger is mounted in exactly one place at a time — docked in the side rail
- * on a wide screen, folded into the bottom-left panel on a narrow one. Rendering
- * both and hiding one with CSS would keep two live ledgers fighting over the
- * board preview and the scroll pin, so the choice is made in JS.
- */
-function useRoomForRail(): boolean {
-  const [wide, setWide] = useState(() =>
-    typeof window === "undefined" ? false : window.matchMedia("(min-width: 1024px)").matches,
-  );
-  useEffect(() => {
-    const query = window.matchMedia("(min-width: 1024px)");
-    const onChange = (event: MediaQueryListEvent): void => setWide(event.matches);
-    setWide(query.matches);
-    query.addEventListener("change", onChange);
-    return () => query.removeEventListener("change", onChange);
-  }, []);
-  return wide;
-}
-
 function formatElapsed(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
   const seconds = total % 60;
@@ -143,6 +119,7 @@ export function Hud({
   onNewGame,
   onUndo,
   undoPending = false,
+  adPending = false,
   redoPurse = null,
   adsExempt = false,
   onResign,
@@ -154,7 +131,6 @@ export function Hud({
   cameraFlipped,
   tactical,
   onToggleTactical,
-  onPreviewMove,
   onTogglePause,
   onDemoSpeed,
   onDemoLoop,
@@ -164,21 +140,15 @@ export function Hud({
   onToggleCinema,
   getElapsed,
 }: HudProps) {
-  const railRoom = useRoomForRail();
   /** Key hints are printed only where there are keys to press. */
   const hasKeyboard = useHasKeyboard();
-  // Beside the board the record costs the player nothing, so it stands open from
-  // the first move; on a phone it would cover ranks, so there it stays folded.
-  const [chronicleOpen, setChronicleOpen] = useState(() =>
-    typeof window === "undefined" ? false : window.matchMedia("(min-width: 1024px)").matches,
-  );
+  const [spoilsOpen, setSpoilsOpen] = useState(false);
   const [cameraMenuOpen, setCameraMenuOpen] = useState(false);
   const [transportOpen, setTransportOpen] = useState(true);
   const [activePreset, setActivePreset] = useState<CameraPreset>(() =>
     snapshot.mode === "ai" && snapshot.playerColor === "b" ? "black" : "white",
   );
   const cameraMenuRef = useRef<HTMLDivElement | null>(null);
-  const chronicleRef = useRef<HTMLDivElement | null>(null);
 
   // Dismiss the camera menu on outside taps / Escape without laying an
   // invisible backdrop over the board (that would eat the next board click).
@@ -199,41 +169,6 @@ export function Hud({
     };
   }, [cameraMenuOpen]);
 
-  // The chronicle is a corner button by default so the board keeps the whole
-  // screen. Escape closes it anywhere; on narrow screens the open panel covers
-  // a good part of the board, so a tap outside folds it back down as well.
-  useEffect(() => {
-    if (!chronicleOpen) return;
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") setChronicleOpen(false);
-    };
-    const onPointerDown = (event: PointerEvent): void => {
-      if (window.innerWidth >= 1024) return;
-      const node = chronicleRef.current;
-      if (node && !node.contains(event.target as Node)) setChronicleOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("pointerdown", onPointerDown);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("pointerdown", onPointerDown);
-    };
-  }, [chronicleOpen]);
-
-  // "H" toggles the record without reaching for the corner.
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== "h" && event.key !== "H") return;
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      const target = event.target as HTMLElement | null;
-      const typing = target ? /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable : false;
-      if (typing) return;
-      setChronicleOpen((open) => !open);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
   const pickCamera = (preset: CameraPreset): void => {
     setActivePreset(preset);
     setCameraMenuOpen(false);
@@ -241,36 +176,6 @@ export function Hud({
   };
 
   const demo = snapshot.demo;
-  const whiteTaken = snapshot.captured.filter((piece) => piece.color === "b");
-  const blackTaken = snapshot.captured.filter((piece) => piece.color === "w");
-  const diff = snapshot.materialDiff;
-
-  const ledger = (
-    <MoveLedger
-      moves={snapshot.moves}
-      pgn={snapshot.pgn}
-      result={snapshot.result}
-      turn={snapshot.turn}
-      thinking={snapshot.thinking}
-      playing={snapshot.status === "playing"}
-      onPreview={onPreviewMove}
-    />
-  );
-
-  const spoils = (
-    <div className="mc-slate mc-goldleaf px-4 py-3">
-      <div className="flex items-center justify-between">
-        <p className="mc-display text-[0.6rem] tracking-[0.34em] text-[#a89268]">Spoils</p>
-        <span className="mc-display text-[0.72rem] text-[#e2c98f]">
-          {diff === 0 ? "even" : diff > 0 ? `ivory +${diff}` : `obsidian +${-diff}`}
-        </span>
-      </div>
-      <div className="mt-2 space-y-1.5">
-        <CapturedRow label="w" pieces={whiteTaken.map((piece) => piece.kind)} />
-        <CapturedRow label="b" pieces={blackTaken.map((piece) => piece.kind)} />
-      </div>
-    </div>
-  );
 
   return (
     <>
@@ -321,7 +226,7 @@ export function Hud({
           <FieldTally snapshot={snapshot} getElapsed={getElapsed} />
         </div>
 
-        <div className="pointer-events-auto flex flex-wrap items-center justify-end gap-1.5">
+        <div className="mc-hud-actions pointer-events-auto flex flex-wrap items-center justify-end gap-1.5">
           {snapshot.clock.enabled ? (
             <div className="mc-slate flex items-center gap-3 px-3 py-1.5">
               <ClockFace
@@ -374,7 +279,16 @@ export function Hud({
               </IconButton>
             </>
           )}
-          <IconButton label="New duel" hint="Abandon this battle and set the board again." onClick={onNewGame}>
+          <IconButton
+            label="New duel"
+            hint={
+              adsExempt
+                ? "Abandon this battle and return to the Great Hall."
+                : "Abandon this battle. A short banner plays, then you return to the Great Hall."
+            }
+            onClick={onNewGame}
+            disabled={adPending}
+          >
             <Swords size={16} />
           </IconButton>
           <IconButton
@@ -489,60 +403,37 @@ export function Hud({
         </div>
       </div>
 
-      {/* Side rail: the spoils sit under the top bar and the move record runs
-          down the rest of the flank, beside the board, so the battle can be read
-          back without a rank being covered. Desktop and tablet only. */}
+      {/* Side rail: captured pieces and the material score, under the top bar.
+          Desktop and tablet only — a phone parks the same tray in the corner. */}
       <div className="mc-side-rail mc-rise pointer-events-none absolute hidden w-56 flex-col gap-2 lg:flex xl:w-60">
-        <div className="pointer-events-auto">{spoils}</div>
-        {railRoom && chronicleOpen ? (
-          <div className="mc-rail-ledger pointer-events-auto min-h-0 flex-1">{ledger}</div>
-        ) : null}
+        <div className="pointer-events-auto">
+          <SpoilsTray snapshot={snapshot} />
+        </div>
       </div>
 
-      {/* Chronicle: a small corner sigil that unfurls the record on demand. The
-          wrapper stays click-through so the board keeps every tap that is not
-          aimed at the button or the open panel. */}
-      <div
-        ref={chronicleRef}
-        className="mc-hud-corner pointer-events-none absolute bottom-0 left-0 z-30 flex flex-col items-start gap-2"
-      >
-        {chronicleOpen && !railRoom ? (
-          <div className="mc-chronicle-panel pointer-events-auto flex h-[min(56vh,460px)] w-[min(84vw,18.5rem)] flex-col gap-2">
-            <div className="min-h-0 flex-1">{ledger}</div>
-            <div>{spoils}</div>
+      <div className="mc-hud-corner pointer-events-none absolute bottom-0 left-0 z-30 flex flex-col items-start gap-2 lg:hidden">
+        {spoilsOpen ? (
+          <div className="pointer-events-auto w-[min(16.5rem,70vw)]">
+            <SpoilsTray snapshot={snapshot} />
           </div>
         ) : null}
-
-        <Tooltip
-          label={chronicleOpen ? "Hide the chronicle" : "Chronicle"}
-          hint={
-            chronicleOpen
-              ? railRoom
-                ? "Clear the record off the flank and give the hall the whole screen."
-                : "Fold the record back into the corner."
-              : railRoom
-                ? "Show the move record beside the board."
-                : "The full move record and the spoils taken."
-          }
-          keys="H"
-          side="top"
+        <button
+          type="button"
+          className="mc-spoils-fab pointer-events-auto"
+          data-open={spoilsOpen || undefined}
+          onClick={() => setSpoilsOpen((open) => !open)}
+          aria-expanded={spoilsOpen}
+          aria-label={spoilsOpen ? "Hide spoils" : "Show spoils"}
         >
-          <button
-            type="button"
-            className="mc-chronicle-fab pointer-events-auto"
-            data-open={chronicleOpen || undefined}
-            onClick={() => setChronicleOpen((open) => !open)}
-            aria-label="Toggle the move chronicle"
-            aria-expanded={chronicleOpen}
-          >
-            {chronicleOpen ? <X size={16} /> : <ScrollText size={16} />}
-            {!chronicleOpen && snapshot.moves.length > 0 ? (
-              <span key={snapshot.moves.length} className="mc-chronicle-badge">
-                {snapshot.moves.length}
-              </span>
-            ) : null}
-          </button>
-        </Tooltip>
+          Spoils
+          <span>
+            {snapshot.materialDiff === 0
+              ? "even"
+              : snapshot.materialDiff > 0
+                ? `+${snapshot.materialDiff}`
+                : `${snapshot.materialDiff}`}
+          </span>
+        </button>
       </div>
 
       {/* AI vs AI transport — a slim rail tucked into the bottom-right corner,
@@ -764,6 +655,26 @@ function TallyRow({
         {lost}
       </span>
       <span className="mc-tally-time">{formatElapsed(ms)}</span>
+    </div>
+  );
+}
+
+function SpoilsTray({ snapshot }: { snapshot: GameSnapshot }) {
+  const whiteTaken = snapshot.captured.filter((piece) => piece.color === "b");
+  const blackTaken = snapshot.captured.filter((piece) => piece.color === "w");
+  const diff = snapshot.materialDiff;
+  return (
+    <div className="mc-slate mc-goldleaf px-4 py-3">
+      <div className="flex items-center justify-between">
+        <p className="mc-display text-[0.6rem] tracking-[0.34em] text-[#a89268]">Spoils</p>
+        <span className="mc-display text-[0.72rem] text-[#e2c98f]">
+          {diff === 0 ? "even" : diff > 0 ? `ivory +${diff}` : `obsidian +${-diff}`}
+        </span>
+      </div>
+      <div className="mt-2 space-y-1.5">
+        <CapturedRow label="w" pieces={whiteTaken.map((piece) => piece.kind)} />
+        <CapturedRow label="b" pieces={blackTaken.map((piece) => piece.kind)} />
+      </div>
     </div>
   );
 }

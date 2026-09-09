@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Chess of Warlords</string>
+    <string name="title_activity_main">Chess of Warlords</string>
+    <string name="package_name">com.chessofwarlords.app</string>
+    <string name="custom_url_scheme">com.chessofwarlords.app</string>
+    <string name="admob_app_id">ca-app-pub-3845995896948168~9279416144</string>
+</resources>

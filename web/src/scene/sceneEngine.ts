@@ -1471,7 +1471,10 @@ export class SceneEngine {
       return;
     }
     this.autoAdjusted = true;
-    const next = order[index - 1];
+    // A phone WebView that is already gasping should drop all the way to Low
+    // rather than linger on Medium (shadows + bloom) for another eight seconds.
+    const native = typeof document !== "undefined" && document.documentElement.classList.contains("mc-native");
+    const next = native ? "low" : order[index - 1];
     this.setQuality(next);
     this.callbacks.onQualityAdjusted(next);
   }

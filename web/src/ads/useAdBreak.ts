@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { allowHouseFallback, HOUSE_DURATION_MS, HOUSE_SKIP_AFTER_MS, readForceHouse, type AdKind } from "./config";
+import {
+  allowHouseFallback,
+  HOUSE_DURATION_MS,
+  HOUSE_SKIP_AFTER_MS,
+  isInterstitial,
+  readForceHouse,
+  useNativeAdMob,
+  type AdKind,
+} from "./config";
 import { bootAdPlacement, configureAdSound, requestGoogleBreak } from "./googleAds";
+import { bootNativeAdMob, nativeAdMobReady, requestNativeBreak } from "./nativeAdMob";
 import { classifyGoogleStatus, googleShowedAd, shouldPlayHouse, shouldProceed, type AdFill } from "./policy";
 import type { AdSession } from "./AdBreakOverlay";
 
@@ -28,7 +37,8 @@ export function useAdBreak({ gameMuted, applyGameMute }: UseAdBreakOptions): {
   applyMuteRef.current = applyGameMute;
 
   useEffect(() => {
-    void bootAdPlacement({ sound: gameMuted ? "off" : "on" });
+    if (nativeAdMobReady()) void bootNativeAdMob();
+    else void bootAdPlacement({ sound: gameMuted ? "off" : "on" });
   }, [gameMuted]);
 
   useEffect(() => {
@@ -45,7 +55,7 @@ export function useAdBreak({ gameMuted, applyGameMute }: UseAdBreakOptions): {
         resolve(fill);
       };
       const started = performance.now();
-      const skipAfter = kind === "match-end" ? HOUSE_SKIP_AFTER_MS : null;
+      const skipAfter = isInterstitial(kind) ? HOUSE_SKIP_AFTER_MS : null;
       const limit = window.setTimeout(() => finish("viewed"), HOUSE_DURATION_MS);
       setSession({
         kind,
@@ -77,9 +87,12 @@ export function useAdBreak({ gameMuted, applyGameMute }: UseAdBreakOptions): {
               skipAfter: null,
               onSkip: null,
             });
-            const google = await requestGoogleBreak(kind, {
-              onBeforeAd: () => setSession(null),
-            });
+            const google = useNativeAdMob()
+              ? await requestNativeBreak(kind)
+              : await requestGoogleBreak(kind, {
+                  onBeforeAd: () => setSession(null),
+                });
+            if (googleShowedAd(google.status)) setSession(null);
             const fill = classifyGoogleStatus(google.status);
             if (googleShowedAd(google.status) || !shouldPlayHouse({ forceHouse, allowHouse, googleStatus: google.status })) {
               return { proceed: shouldProceed(kind, fill), fill };

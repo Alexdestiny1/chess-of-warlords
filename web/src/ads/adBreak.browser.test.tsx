@@ -23,6 +23,9 @@ function Harness() {
       <button type="button" onClick={() => void play("match-end")}>
         Leave
       </button>
+      <button type="button" onClick={() => void play("new-duel")}>
+        New duel
+      </button>
       <button type="button" onClick={() => void play("undo")}>
         Redo
       </button>
@@ -44,6 +47,18 @@ test("plays a match-end missive before leaving, skippable after the wait", async
   await screen.getByRole("button", { name: "Leave" }).click();
   await expect.element(screen.getByTestId("ad-break")).toBeInTheDocument();
   await expect.poll(() => screen.getByTestId("ad-break").element().getAttribute("data-ad-kind")).toBe("match-end");
+
+  await vi.advanceTimersByTimeAsync(4_100);
+  await expect.element(screen.getByRole("button", { name: "Skip" })).toBeInTheDocument();
+  await screen.getByRole("button", { name: "Skip" }).click();
+  await expect.element(screen.getByTestId("ad-break")).not.toBeInTheDocument();
+});
+
+test("plays a new-duel missive before the Great Hall, skippable after the wait", async () => {
+  const screen = await render(<Harness />);
+  await screen.getByRole("button", { name: "New duel" }).click();
+  await expect.element(screen.getByTestId("ad-break")).toBeInTheDocument();
+  await expect.poll(() => screen.getByTestId("ad-break").element().getAttribute("data-ad-kind")).toBe("new-duel");
 
   await vi.advanceTimersByTimeAsync(4_100);
   await expect.element(screen.getByRole("button", { name: "Skip" })).toBeInTheDocument();
